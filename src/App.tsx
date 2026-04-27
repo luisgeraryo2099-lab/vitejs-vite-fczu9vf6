@@ -4,7 +4,8 @@ import {
   TrendingUp, Heart, AlertCircle, Zap, Award, BarChart3, Hash, Calendar, 
   ArrowUpRight, Info, Lock, School, Sparkles, Loader2, X, Stethoscope, 
   Trophy, Star, LogOut, LogIn, UserPlus, Users, Eye, Key, AlertTriangle, FileUp, FileSpreadsheet, ShieldCheck,
-  Flame, BicepsFlexed, ShieldAlert, Crown, PlayCircle, CheckCircle2, Apple, Video, ChevronRight, PlusCircle
+  Flame, BicepsFlexed, ShieldAlert, Crown, PlayCircle, CheckCircle2, Apple, Video, ChevronRight, PlusCircle,
+  Mail, Phone, Clock
 } from 'lucide-react';
 
 // Firebase Imports
@@ -207,8 +208,12 @@ const App = () => {
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Estados para validaciones de errores
   const [loginError, setLoginError] = useState("");
   const [regError, setRegError] = useState("");
+
+  // Estado para el modal de detalle de las medallas
+  const [medalModal, setMedalModal] = useState({ show: false, title: '', desc: '', detail: '', icon: null, themeClass: '', colorClass: '', active: false });
 
   const [nuevoEstudiante, setNuevoEstudiante] = useState({ matricula: '', password: '', nombre: '', unidadAcademica: '', edad: '', sexo: 'M' });
   const [encuesta, setEncuesta] = useState({
@@ -618,6 +623,34 @@ const App = () => {
       {/* Fondos fluidos adaptativos */}
       <div className="fixed top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-cyan-600/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
       <div className="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+
+      {/* MODAL INTERACTIVO DE MEDALLAS */}
+      {medalModal.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#030508]/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setMedalModal({ ...medalModal, show: false })}>
+          <div className="bg-gradient-to-b from-[#131a2a] to-[#0a0f1a] border border-white/10 p-8 rounded-[3rem] w-full max-w-[350px] shadow-[0_30px_60px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] relative overflow-hidden flex flex-col items-center text-center animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="absolute top-6 right-6 text-slate-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors"><X size={16}/></button>
+
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-transform duration-1000 shadow-inner ${medalModal.active ? `bg-gradient-to-br ${medalModal.themeClass} border-t border-l border-white/60 border-b border-r border-black/50 shadow-[inset_0_6px_10px_rgba(255,255,255,0.8),inset_0_-6px_10px_rgba(0,0,0,0.5)] scale-110` : 'bg-slate-800 border border-white/5 text-slate-600 shadow-[inset_0_4px_8px_rgba(0,0,0,0.5)]'}`}>
+              {medalModal.icon && React.createElement(medalModal.icon, {
+                 size: 36, 
+                 className: medalModal.active ? `${medalModal.colorClass === 'platinum' ? 'text-slate-800' : 'text-white'} drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]` : ""
+              })}
+            </div>
+
+            <h3 className={`text-2xl font-black uppercase tracking-tighter mb-2 ${medalModal.active ? 'text-white' : 'text-slate-400'}`}>{medalModal.title}</h3>
+            
+            <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full mb-6 ${medalModal.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800/50 text-slate-500 border border-slate-700/50'}`}>
+              {medalModal.active ? '✓ Desbloqueada' : '🔒 Bloqueada'}
+            </span>
+
+            <p className="text-[11px] font-bold text-slate-300 leading-relaxed mb-8 px-2">{medalModal.detail}</p>
+
+            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="w-full py-4 bg-[#1a2235] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#232d46] transition-all border border-white/5 shadow-md">
+              Cerrar Detalle
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 relative z-10 flex-1 flex flex-col">
         
@@ -1030,7 +1063,7 @@ const App = () => {
                 const platinoDesbloqueado = medallasObtenidas === totalMedallasBases;
                 const porcentajeProgreso = ((medallasObtenidas + (platinoDesbloqueado ? 1 : 0)) / (totalMedallasBases + 1)) * 100;
 
-                const renderBadge = (active, title, desc, IconComponent, colorClass, animationDelayIdx) => {
+                const renderBadge = (active, title, desc, detail, IconComponent, colorClass, animationDelayIdx) => {
                   const styles = {
                     yellow: "from-yellow-200 via-yellow-400 to-yellow-600 shadow-[0_10px_20px_rgba(234,179,8,0.4)] border-yellow-200/50",
                     emerald: "from-emerald-200 via-emerald-400 to-emerald-600 shadow-[0_10px_20px_rgba(16,185,129,0.4)] border-emerald-200/50",
@@ -1051,8 +1084,9 @@ const App = () => {
 
                   return (
                     <div 
-                      className={`p-[1px] rounded-[2.5rem] transition-all duration-700 ease-out 
-                        ${active ? `bg-gradient-to-b from-white/20 to-white/5 hover:scale-105 shadow-xl z-10 hover:z-20 animate-[floatMedal_4s_ease-in-out_infinite]` : 'bg-slate-800/40 grayscale opacity-60'}
+                      onClick={() => setMedalModal({ show: true, title, desc, detail, icon: IconComponent, themeClass: theme, colorClass, active })}
+                      className={`p-[1px] rounded-[2.5rem] transition-all duration-700 ease-out cursor-pointer
+                        ${active ? `bg-gradient-to-b from-white/20 to-white/5 hover:scale-105 shadow-xl z-10 hover:z-20 animate-[floatMedal_4s_ease-in-out_infinite]` : 'bg-slate-800/40 grayscale opacity-60 hover:opacity-100 hover:scale-105'}
                       `}
                       style={active ? { animationDelay: `${delay}s` } : {}}
                     >
@@ -1072,6 +1106,13 @@ const App = () => {
 
                 return (
                   <div className="bg-[#0c1220]/80 backdrop-blur-2xl p-8 md:p-12 rounded-[3.5rem] border border-white/5 mt-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                    <style>{`
+                      @keyframes floatMedal {
+                        0% { transform: translateY(0px); }
+                        50% { transform: translateY(-8px); }
+                        100% { transform: translateY(0px); }
+                      }
+                    `}</style>
                     <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-purple-600/10 blur-[100px] rounded-full pointer-events-none"></div>
                     
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 relative z-10">
@@ -1082,33 +1123,31 @@ const App = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5 relative z-10">
-                      {/* Medallas Originales */}
-                      {renderBadge(primerPaso, "Primer Paso", "Mes 1 Completo", ArrowUpRight, "slate", 1)}
-                      {renderBadge(isConstante, "Disciplina", "Mes 2 Completo", Calendar, "yellow", 2)}
-                      {renderBadge(retoCompletado, "Constancia", "Reto Finalizado", Star, "orange", 3)}
-                      {renderBadge(mejoroCardio, "Motor Imparable", "Mejora Ruffier", Heart, "emerald", 4)}
-                      {renderBadge(corazonAtleta, "Cardio Élite", "Ruffier Excelente", Activity, "red", 5)}
-                      {renderBadge(imcSaludable, "Equilibrio", "IMC Saludable", Weight, "cyan", 6)}
-                      {renderBadge(iccSaludable, "Riesgo Cero", "ICC Bajo Riesgo", ShieldCheck, "rose", 7)}
-                      {renderBadge(escudoInterno, "Escudo Interno", "GV Saludable", ShieldAlert, "yellow", 8)}
-                      {renderBadge(mejoroCore, "Core de Acero", "Reduce Cintura", Ruler, "lime", 9)}
-                      {renderBadge(mejoroGrasaCorp, "Definición", "Mejora GC", Flame, "rose", 10)}
-                      {renderBadge(hipertrofia, "Hipertrofia", "Músculo Sano", BicepsFlexed, "blue", 11)}
-                      {renderBadge(mejoroSup, "Fuerza Bruta", "Mejora T. Superior", Zap, "blue", 12)}
-                      {renderBadge(mejoroInf, "Pot. Explosiva", "Mejora T. Inferior", TrendingUp, "purple", 13)}
-                      {renderBadge(fuerzaElite, "Fuerza Élite", "Fuerza Excelente", Award, "indigo", 14)}
-                      {renderBadge(atletaIntegral, "Atleta Integral", "Mejora 3 Pruebas", Trophy, "orange", 15)}
+                      {renderBadge(primerPaso, "Primer Paso", "Mes 1 Completo", "Completaste exitosamente todas las pruebas de tu primera evaluación física.", ArrowUpRight, "slate", 1)}
+                      {renderBadge(isConstante, "Disciplina", "Mes 2 Completo", "Registraste tus datos en dos fases seguidas, demostrando constancia en tu proceso.", Calendar, "yellow", 2)}
+                      {renderBadge(retoCompletado, "Constancia", "Reto Finalizado", "Llegaste a la meta final. Has completado las 3 fases del reto físico de la DAES.", Star, "orange", 3)}
+                      {renderBadge(mejoroCardio, "Motor Imparable", "Mejora Ruffier", "Mejoraste tu capacidad cardiovascular reduciendo tu puntaje en la prueba de Ruffier.", Heart, "emerald", 4)}
+                      {renderBadge(corazonAtleta, "Cardio Élite", "Ruffier Excelente", "Alcanzaste un nivel de excelencia (0-5 pts) en tu capacidad cardiovascular.", Activity, "red", 5)}
+                      {renderBadge(imcSaludable, "Equilibrio", "IMC Saludable", "Lograste o mantuviste tu Índice de Masa Corporal dentro del rango saludable (18.5 - 24.9).", Weight, "cyan", 6)}
+                      {renderBadge(iccSaludable, "Riesgo Cero", "ICC Bajo Riesgo", "Tu Índice Cintura-Cadera indica un riesgo cardiovascular bajo y saludable.", ShieldCheck, "rose", 7)}
+                      {renderBadge(escudoInterno, "Escudo Interno", "GV Saludable", "Mantuviste tu nivel de Grasa Visceral en parámetros seguros (Nivel 1-9).", ShieldAlert, "yellow", 8)}
+                      {renderBadge(mejoroCore, "Core de Acero", "Reduce Cintura", "Lograste reducir el perímetro de tu cintura en comparación con tus registros anteriores.", Ruler, "lime", 9)}
+                      {renderBadge(mejoroGrasaCorp, "Definición", "Mejora GC", "Redujiste tu porcentaje de Grasa Corporal acercándote a un rango más saludable.", Flame, "rose", 10)}
+                      {renderBadge(hipertrofia, "Hipertrofia", "Músculo Sano", "Alcanzaste un nivel óptimo o atlético en tu porcentaje de Músculo Esquelético.", BicepsFlexed, "blue", 11)}
+                      {renderBadge(mejoroSup, "Fuerza Bruta", "Mejora T. Superior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Superior.", Zap, "blue", 12)}
+                      {renderBadge(mejoroInf, "Pot. Explosiva", "Mejora T. Inferior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Inferior.", TrendingUp, "purple", 13)}
+                      {renderBadge(fuerzaElite, "Fuerza Élite", "Fuerza Excelente", "Demostraste una condición excepcional obteniendo nivel Excelente en las pruebas de fuerza.", Award, "indigo", 14)}
+                      {renderBadge(atletaIntegral, "Atleta Integral", "Mejora 3 Pruebas", "Mejoraste simultáneamente en tus capacidades de Cardio, Tren Superior y Tren Inferior.", Trophy, "orange", 15)}
                       
-                      {/* Nuevas Medallas Integradas (Videos) */}
-                      {renderBadge(nutM1, "Nutrición Mes 1", "Especialista Nut.", Apple, "rose", 16)}
-                      {renderBadge(cfM1, "Física Mes 1", "Cultura Física", Zap, "yellow", 17)}
-                      {renderBadge(nutM2, "Nutrición Mes 2", "Especialista Nut.", Apple, "rose", 18)}
-                      {renderBadge(cfM2, "Física Mes 2", "Cultura Física", Zap, "yellow", 19)}
-                      {renderBadge(nutM3, "Nutrición Mes 3", "Especialista Nut.", Apple, "rose", 20)}
-                      {renderBadge(cfM3, "Física Mes 3", "Cultura Física", Zap, "yellow", 21)}
+                      {renderBadge(nutM1, "Nutrición Mes 1", "Especialista Nut.", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 1.", Apple, "rose", 16)}
+                      {renderBadge(cfM1, "Física Mes 1", "Cultura Física", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 1.", Zap, "yellow", 17)}
+                      {renderBadge(nutM2, "Nutrición Mes 2", "Especialista Nut.", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 2.", Apple, "rose", 18)}
+                      {renderBadge(cfM2, "Física Mes 2", "Cultura Física", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 2.", Zap, "yellow", 19)}
+                      {renderBadge(nutM3, "Nutrición Mes 3", "Especialista Nut.", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 3.", Apple, "rose", 20)}
+                      {renderBadge(cfM3, "Física Mes 3", "Cultura Física", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 3.", Zap, "yellow", 21)}
 
                       <div className="col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-5 xl:col-span-6 mt-4">
-                         {renderBadge(platinoDesbloqueado, "Platino Absoluto", "Colección Completa", Crown, "platinum", 22)}
+                         {renderBadge(platinoDesbloqueado, "Platino Absoluto", "Colección Completa", "¡El máximo honor del Reto Actívate! Desbloqueaste todas las medallas posibles demostrando una disciplina inquebrantable a lo largo de las 3 fases.", Crown, "platinum", 22)}
                       </div>
                     </div>
                   </div>
