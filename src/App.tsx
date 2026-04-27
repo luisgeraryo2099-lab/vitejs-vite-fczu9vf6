@@ -63,6 +63,61 @@ const UNIDADES_ACADEMICAS = [
 const CATEGORIAS_CONTENIDO = ["Nutrición", "Cultura Física"];
 const MESES = ["Mes 1", "Mes 2", "Mes 3"];
 
+// --- ICONO WOW: EJERCICIO FÍSICO Y BIENESTAR (ATLETA NEÓN) ---
+const PremiumActiveIcon = ({ size = 80, className = "" }) => (
+  <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+    <svg viewBox="0 0 100 100" className="absolute z-10 drop-shadow-[0_15px_25px_rgba(16,185,129,0.4)]" style={{ transform: 'scale(1.15) translateY(-2px)' }}>
+      <defs>
+        <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#06b6d4" /> {/* Cyan */}
+          <stop offset="50%" stopColor="#3b82f6" /> {/* Blue */}
+          <stop offset="100%" stopColor="#10b981" /> {/* Emerald / Health */}
+        </linearGradient>
+        <linearGradient id="energyGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#f59e0b" /> {/* Amber */}
+          <stop offset="100%" stopColor="#f97316" /> {/* Orange */}
+        </linearGradient>
+        <filter id="glowActive" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Sombra base */}
+      <ellipse cx="50" cy="90" rx="25" ry="4" fill="#0f172a" opacity="0.8" />
+      
+      <g filter="url(#glowActive)">
+        {/* Cabeza del atleta */}
+        <circle cx="65" cy="25" r="8" fill="url(#activeGradient)" />
+        {/* Torso dinámico */}
+        <path d="M 50 40 C 60 50 65 65 60 70" fill="none" stroke="url(#activeGradient)" strokeWidth="10" strokeLinecap="round" />
+        {/* Brazo delantero */}
+        <path d="M 50 40 C 60 35 75 25 80 20" fill="none" stroke="url(#activeGradient)" strokeWidth="8" strokeLinecap="round" />
+        {/* Brazo trasero */}
+        <path d="M 30 35 C 40 45 50 40 50 40" fill="none" stroke="url(#activeGradient)" strokeWidth="8" strokeLinecap="round" />
+        {/* Pierna delantera (salto) */}
+        <path d="M 60 70 C 70 70 80 85 85 90" fill="none" stroke="url(#activeGradient)" strokeWidth="9" strokeLinecap="round" />
+        {/* Pierna trasera (impulso) */}
+        <path d="M 60 70 C 45 80 30 85 20 85" fill="none" stroke="url(#activeGradient)" strokeWidth="9" strokeLinecap="round" />
+      </g>
+
+      {/* Chispa de Energía / Vitalidad */}
+      <path d="M 85 25 L 87 32 L 94 34 L 88 38 L 89 45 L 83 41 L 77 45 L 78 38 L 72 34 L 79 32 Z" fill="url(#energyGradient)" filter="url(#glowActive)" className="animate-pulse" style={{ animationDuration: '1.5s' }}/>
+      
+      {/* Líneas de velocidad */}
+      <path d="M 10 45 L 30 45 M 5 65 L 20 65" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" opacity="0.6" className="animate-pulse" style={{ animationDelay: '0.5s' }}/>
+    </svg>
+    
+    {/* Partículas de bienestar / movimiento */}
+    <div className="absolute left-[-10%] top-[20%] w-[12%] h-[12%] bg-cyan-400 animate-ping rounded-full shadow-[0_0_15px_#06b6d4]" style={{ animationDuration: '2.5s' }}></div>
+    <div className="absolute right-[0%] top-[75%] w-[10%] h-[10%] bg-emerald-400 animate-ping rounded-full shadow-[0_0_15px_#10b981]" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
+    <div className="absolute left-[75%] top-[10%] w-[8%] h-[8%] bg-amber-400 animate-pulse rounded-full shadow-[0_0_15px_#f59e0b]" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+  </div>
+);
+
 const getNormalizedVideos = (videosObj, mes, cat) => {
   if (!videosObj) return [];
   const key = `${mes}-${cat}`;
@@ -126,6 +181,13 @@ const SelectField = ({ label, name, value, onChange, options, icon: Icon, disabl
   );
 };
 
+const ReadOnlyField = ({ label, value }) => (
+  <div className="flex flex-col p-4 bg-[#0c1220]/50 rounded-[1.5rem] border border-white/5">
+     <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1 opacity-80">{label}</span>
+     <span className="text-sm font-bold text-white">{value || "No especificado"}</span>
+  </div>
+);
+
 const ProgressLineChart = ({ data, label, unit, colorKey }) => {
   const [selectedPoint, setSelectedPoint] = useState(null);
   if (!data || data.length === 0) return null;
@@ -156,7 +218,7 @@ const ProgressLineChart = ({ data, label, unit, colorKey }) => {
     <div className="bg-gradient-to-br from-[#0c1220]/80 to-[#080b14]/80 p-6 md:p-8 rounded-[2.5rem] border border-white/5 relative overflow-hidden group hover:border-white/10 transition-colors shadow-lg">
       <div className={`absolute top-0 right-0 w-32 h-32 blur-[50px] opacity-20 rounded-full pointer-events-none`} style={{backgroundColor: theme.stroke}}></div>
       <div className="flex justify-between items-center mb-6 relative z-10">
-        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest flex items-center gap-2 drop-shadow-md" style={{color: theme.stroke}}>
+        <h4 className="text-[10px] md:text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2 drop-shadow-md" style={{color: theme.stroke}}>
           <TrendingUp size={14} /> {label}
         </h4>
         <span className="text-[8px] md:text-[10px] font-black text-slate-500 uppercase bg-white/5 px-2 py-1 rounded-lg">{unit}</span>
@@ -202,18 +264,18 @@ const App = () => {
   const [historial, setHistorial] = useState([]);
   const [usuariosLista, setUsuariosLista] = useState([]);
   const [configGlobal, setConfigGlobal] = useState({ desbloqueos: {}, videos: {} });
+  
   const [showSurvey, setShowSurvey] = useState(false);
+  const [adminSurveyView, setAdminSurveyView] = useState({ show: false, data: null, studentName: '' });
+  
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null, type: null, label: '' });
+  const [medalModal, setMedalModal] = useState({ show: false, title: '', desc: '', detail: '', icon: null, themeClass: '', colorClass: '', active: false });
   const [videoInputs, setVideoInputs] = useState({});
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Estados para validaciones de errores
   const [loginError, setLoginError] = useState("");
   const [regError, setRegError] = useState("");
-
-  // Estado para el modal de detalle de las medallas
-  const [medalModal, setMedalModal] = useState({ show: false, title: '', desc: '', detail: '', icon: null, themeClass: '', colorClass: '', active: false });
 
   const [nuevoEstudiante, setNuevoEstudiante] = useState({ matricula: '', password: '', nombre: '', unidadAcademica: '', edad: '', sexo: 'M' });
   const [encuesta, setEncuesta] = useState({
@@ -574,8 +636,8 @@ const App = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         
         <div className="bg-[#0c1220]/80 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/10 w-full max-w-md text-center shadow-[0_30px_60px_rgba(0,0,0,0.6)] relative z-10">
-          <div className="bg-gradient-to-br from-cyan-400 to-blue-600 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(6,182,212,0.4)] border border-cyan-300/30 rotate-3 hover:rotate-0 transition-transform duration-500">
-            <Zap className="text-white fill-white" size={40} />
+          <div className="bg-gradient-to-br from-[#0c1220] to-[#131a2a] w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(6,182,212,0.4)] border border-cyan-500/30 overflow-visible">
+            <PremiumActiveIcon className="text-white" size={60} />
           </div>
           <h1 className="text-3xl font-black text-white uppercase italic tracking-tighter drop-shadow-md">Reto <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Actívate</span></h1>
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">DAES • Promoción de la Cultura Física</p>
@@ -652,12 +714,55 @@ const App = () => {
         </div>
       )}
 
+      {/* MODAL ADMIN PARA VER ENCUESTA */}
+      {adminSurveyView.show && (
+        <div className="fixed inset-0 z-[9999] bg-[#030509]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-gradient-to-b from-[#0c1220] to-[#080b14] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
+            <button onClick={() => setAdminSurveyView({show: false, data: null, studentName: ''})} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
+            <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md">
+               <Stethoscope size={32} className="text-indigo-400"/> 
+               Expediente Clínico
+            </h2>
+            <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-6 mt-[-15px]">Alumno: <span className="text-white">{adminSurveyView.studentName}</span></p>
+
+            <div className="space-y-6">
+               <div className="flex flex-col gap-4 bg-[#131a2a]/50 p-6 rounded-[2rem] border border-white/5 shadow-inner">
+                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud y Seguridad</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <ReadOnlyField label="Condición Crónica" value={adminSurveyView.data?.condicionMedica} />
+                   <ReadOnlyField label="Dolor Crónico" value={adminSurveyView.data?.dolorCronico} />
+                   <ReadOnlyField label="Medicamentos" value={adminSurveyView.data?.medicamentos} />
+                 </div>
+               </div>
+
+               <div className="flex flex-col gap-4 bg-[#131a2a]/50 p-6 rounded-[2rem] border border-white/5 shadow-inner">
+                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">II. Metas y Experiencia</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <ReadOnlyField label="Objetivo principal" value={adminSurveyView.data?.objetivoPrincipal} />
+                   <ReadOnlyField label="Nivel actividad física" value={adminSurveyView.data?.nivelActividad} />
+                 </div>
+               </div>
+
+               <div className="flex flex-col gap-4 bg-[#131a2a]/50 p-6 rounded-[2rem] border border-white/5 shadow-inner">
+                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">III. Logística y Antecedentes</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <ReadOnlyField label="Correo Institucional" value={adminSurveyView.data?.correoInstitucional} />
+                   <ReadOnlyField label="Teléfono de contacto" value={adminSurveyView.data?.telefono} />
+                   <ReadOnlyField label="Defectos de postura" value={adminSurveyView.data?.defectosPostura} />
+                   <ReadOnlyField label="Horario de contacto" value={adminSurveyView.data?.horarioContacto} />
+                 </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 relative z-10 flex-1 flex flex-col">
         
         <header className="mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-cyan-400 to-blue-600 p-3 md:p-4 rounded-2xl shadow-[0_5px_15px_rgba(6,182,212,0.3)] border border-cyan-300/30">
-              <Zap className="text-white fill-white" size={24} />
+            <div className="bg-gradient-to-br from-[#0c1220] to-[#131a2a] p-3 md:p-4 rounded-2xl shadow-[0_5px_15px_rgba(6,182,212,0.3)] border border-cyan-500/30">
+              <PremiumActiveIcon className="text-white" size={32} />
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter leading-none drop-shadow-md">Reto <span className="text-cyan-400">Actívate</span></h1>
@@ -730,11 +835,22 @@ const App = () => {
                            <Key size={14} className="text-slate-500" />
                            <span className="text-[10px] font-black text-emerald-400 tracking-widest bg-emerald-500/10 px-3 py-1 rounded-lg">{u.password}</span>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 md:gap-4">
                           <button onClick={() => toggleSurveyAccess(u.matricula, u.surveyEnabled)} className={`w-10 h-5 rounded-full relative ${u.surveyEnabled ? 'bg-indigo-500' : 'bg-slate-800'}`}>
                             <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${u.surveyEnabled ? 'right-1' : 'left-1'}`} />
                           </button>
-                          <button onClick={() => triggerDelete(u.matricula, 'user', u.nombre)} className="text-slate-500 hover:text-red-400"><Trash2 size={16}/></button>
+                          
+                          <button onClick={() => {
+                              if (u.encuestaCompletada && u.datosEncuesta) {
+                                setAdminSurveyView({ show: true, data: u.datosEncuesta, studentName: u.nombre || u.matricula });
+                              } else {
+                                alert("Este estudiante aún no ha llenado su expediente clínico.");
+                              }
+                          }} className={`p-2 rounded-xl transition-all ${u.encuestaCompletada ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-slate-600 grayscale cursor-not-allowed hover:bg-white/5'}`} title="Ver Expediente Médico">
+                            <Stethoscope size={16}/>
+                          </button>
+
+                          <button onClick={() => triggerDelete(u.matricula, 'user', u.nombre)} className="text-slate-500 hover:text-red-400 p-2 rounded-xl hover:bg-white/5 transition-all"><Trash2 size={16}/></button>
                         </div>
                       </div>
                     </div>
@@ -1123,6 +1239,7 @@ const App = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-5 relative z-10">
+                      {/* Medallas Originales */}
                       {renderBadge(primerPaso, "Primer Paso", "Mes 1 Completo", "Completaste exitosamente todas las pruebas de tu primera evaluación física.", ArrowUpRight, "slate", 1)}
                       {renderBadge(isConstante, "Disciplina", "Mes 2 Completo", "Registraste tus datos en dos fases seguidas, demostrando constancia en tu proceso.", Calendar, "yellow", 2)}
                       {renderBadge(retoCompletado, "Constancia", "Reto Finalizado", "Llegaste a la meta final. Has completado las 3 fases del reto físico de la DAES.", Star, "orange", 3)}
@@ -1139,6 +1256,7 @@ const App = () => {
                       {renderBadge(fuerzaElite, "Fuerza Élite", "Fuerza Excelente", "Demostraste una condición excepcional obteniendo nivel Excelente en las pruebas de fuerza.", Award, "indigo", 14)}
                       {renderBadge(atletaIntegral, "Atleta Integral", "Mejora 3 Pruebas", "Mejoraste simultáneamente en tus capacidades de Cardio, Tren Superior y Tren Inferior.", Trophy, "orange", 15)}
                       
+                      {/* Nuevas Medallas Integradas (Videos) */}
                       {renderBadge(nutM1, "Nutrición Mes 1", "Especialista Nut.", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 1.", Apple, "rose", 16)}
                       {renderBadge(cfM1, "Física Mes 1", "Cultura Física", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 1.", Zap, "yellow", 17)}
                       {renderBadge(nutM2, "Nutrición Mes 2", "Especialista Nut.", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 2.", Apple, "rose", 18)}
