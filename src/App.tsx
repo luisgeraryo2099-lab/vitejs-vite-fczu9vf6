@@ -471,7 +471,7 @@ const App = () => {
 
   const handlePhaseClick = (m) => {
     setRegError(""); 
-    const record = historial.find(h => h.etapa === m);
+    const record = historial.find(h => h.etapa === m && h.matricula === userData.matricula);
     if (record) {
       setDatosRegistro(prev => ({ ...prev, ...record, etapa: m }));
     } else {
@@ -577,7 +577,7 @@ const App = () => {
 
   const evolUser = useMemo(() => {
     if (!userData || userData.role !== 'student') return null;
-    const records = [...historial].sort((a, b) => ["Inicial", ...MESES].indexOf(a.etapa) - ["Inicial", ...MESES].indexOf(b.etapa));
+    const records = historial.filter(h => h.matricula === userData.matricula).sort((a, b) => ["Inicial", ...MESES].indexOf(a.etapa) - ["Inicial", ...MESES].indexOf(b.etapa));
     const mapData = (key) => ["Inicial", ...MESES].map(m => ({ mes: m, value: records.find(r => r.etapa === m)?.[key] || 0 }));
     
     let highlight = { area: "En Proceso", msg: "Registra datos para iniciar." };
@@ -1001,7 +1001,7 @@ const App = () => {
                 <h3 className="text-base md:text-lg font-black text-white uppercase italic mb-6 flex items-center gap-3 tracking-tighter"><Calendar className="text-blue-500" size={24}/> Fase a Reportar</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                   {["Inicial", ...MESES].map(m => {
-                    const isB = historial.some(h => h.etapa === m);
+                    const isB = historial.some(h => h.etapa === m && h.matricula === userData.matricula);
                     const isSelected = datosRegistro.etapa === m;
                     let btnStyle = 'bg-[#131a2a] text-slate-500 border-2 border-white/5 hover:border-white/20';
                     if (isSelected) btnStyle = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.3)] scale-105 z-10';
@@ -1016,7 +1016,7 @@ const App = () => {
               </div>
 
               {(() => {
-                const isViewingMode = historial.some(h => h.etapa === datosRegistro.etapa);
+                const isViewingMode = historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula);
                 return (
                   <div className="flex flex-col lg:flex-row gap-8">
                     {/* FORMULARIO DE CAPTURA */}
@@ -1139,7 +1139,7 @@ const App = () => {
 
               {/* VITRINA UNIFICADA CON LAS 23 MEDALLAS (Físicas + Videos + Platino) */}
               {(() => {
-                const sorted = [...historial].sort((a, b) => ["Inicial", ...MESES].indexOf(a.etapa) - ["Inicial", ...MESES].indexOf(b.etapa));
+                const sorted = historial.filter(h => h.matricula === userData.matricula).sort((a, b) => ["Inicial", ...MESES].indexOf(a.etapa) - ["Inicial", ...MESES].indexOf(b.etapa));
                 const hasProgress = sorted.length > 1; 
                 const ultimo = sorted.length > 0 ? sorted[sorted.length - 1] : null;
 
