@@ -5,7 +5,7 @@ import {
   ArrowUpRight, Info, Lock, School, Sparkles, Loader2, X, Stethoscope, 
   Trophy, Star, LogOut, LogIn, UserPlus, Users, Eye, Key, AlertTriangle, FileUp, FileSpreadsheet, ShieldCheck,
   Flame, BicepsFlexed, ShieldAlert, Crown, PlayCircle, CheckCircle2, Apple, Video, ChevronRight, PlusCircle,
-  Mail, Phone, Clock
+  Mail, Phone, Clock, ArrowLeft
 } from 'lucide-react';
 
 // Firebase Imports
@@ -63,61 +63,6 @@ const UNIDADES_ACADEMICAS = [
 const CATEGORIAS_CONTENIDO = ["Nutrición", "Cultura Física"];
 const MESES = ["Mes 1", "Mes 2", "Mes 3"];
 
-// --- ICONO WOW: EJERCICIO FÍSICO Y BIENESTAR (ATLETA NEÓN) ---
-const PremiumActiveIcon = ({ size = 80, className = "" }) => (
-  <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
-    <svg viewBox="0 0 100 100" className="absolute z-10 drop-shadow-[0_15px_25px_rgba(16,185,129,0.4)]" style={{ transform: 'scale(1.15) translateY(-2px)' }}>
-      <defs>
-        <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#06b6d4" /> {/* Cyan */}
-          <stop offset="50%" stopColor="#3b82f6" /> {/* Blue */}
-          <stop offset="100%" stopColor="#10b981" /> {/* Emerald / Health */}
-        </linearGradient>
-        <linearGradient id="energyGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#f59e0b" /> {/* Amber */}
-          <stop offset="100%" stopColor="#f97316" /> {/* Orange */}
-        </linearGradient>
-        <filter id="glowActive" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      {/* Sombra base */}
-      <ellipse cx="50" cy="90" rx="25" ry="4" fill="#0f172a" opacity="0.8" />
-      
-      <g filter="url(#glowActive)">
-        {/* Cabeza del atleta */}
-        <circle cx="65" cy="25" r="8" fill="url(#activeGradient)" />
-        {/* Torso dinámico */}
-        <path d="M 50 40 C 60 50 65 65 60 70" fill="none" stroke="url(#activeGradient)" strokeWidth="10" strokeLinecap="round" />
-        {/* Brazo delantero */}
-        <path d="M 50 40 C 60 35 75 25 80 20" fill="none" stroke="url(#activeGradient)" strokeWidth="8" strokeLinecap="round" />
-        {/* Brazo trasero */}
-        <path d="M 30 35 C 40 45 50 40 50 40" fill="none" stroke="url(#activeGradient)" strokeWidth="8" strokeLinecap="round" />
-        {/* Pierna delantera (salto) */}
-        <path d="M 60 70 C 70 70 80 85 85 90" fill="none" stroke="url(#activeGradient)" strokeWidth="9" strokeLinecap="round" />
-        {/* Pierna trasera (impulso) */}
-        <path d="M 60 70 C 45 80 30 85 20 85" fill="none" stroke="url(#activeGradient)" strokeWidth="9" strokeLinecap="round" />
-      </g>
-
-      {/* Chispa de Energía / Vitalidad */}
-      <path d="M 85 25 L 87 32 L 94 34 L 88 38 L 89 45 L 83 41 L 77 45 L 78 38 L 72 34 L 79 32 Z" fill="url(#energyGradient)" filter="url(#glowActive)" className="animate-pulse" style={{ animationDuration: '1.5s' }}/>
-      
-      {/* Líneas de velocidad */}
-      <path d="M 10 45 L 30 45 M 5 65 L 20 65" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" opacity="0.6" className="animate-pulse" style={{ animationDelay: '0.5s' }}/>
-    </svg>
-    
-    {/* Partículas de bienestar / movimiento */}
-    <div className="absolute left-[-10%] top-[20%] w-[12%] h-[12%] bg-cyan-400 animate-ping rounded-full shadow-[0_0_15px_#06b6d4]" style={{ animationDuration: '2.5s' }}></div>
-    <div className="absolute right-[0%] top-[75%] w-[10%] h-[10%] bg-emerald-400 animate-ping rounded-full shadow-[0_0_15px_#10b981]" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
-    <div className="absolute left-[75%] top-[10%] w-[8%] h-[8%] bg-amber-400 animate-pulse rounded-full shadow-[0_0_15px_#f59e0b]" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
-  </div>
-);
-
 const getNormalizedVideos = (videosObj, mes, cat) => {
   if (!videosObj) return [];
   const key = `${mes}-${cat}`;
@@ -138,7 +83,7 @@ const ModalConfirmacion = ({ isOpen, onClose, onConfirm, titulo, mensaje }) => {
         <h3 className="text-xl md:text-2xl font-black text-white text-center mb-2 uppercase tracking-tighter drop-shadow-md">{titulo}</h3>
         <p className="text-slate-400 text-xs text-center mb-8 font-bold leading-relaxed">{mensaje}</p>
         <div className="grid grid-cols-2 gap-4 relative z-10">
-          <button onClick={onClose} className="py-4 bg-[#1a2235] text-white rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-white/5 hover:bg-[#232d46]">Cancelar</button>
+          <button onClick={onClose} className="py-4 bg-[#1a2235] text-white rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border border-white/5 hover:bg-[#232d46] flex items-center justify-center gap-2">Cancelar</button>
           <button onClick={onConfirm} className="py-4 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-[0_10px_20px_rgba(225,29,72,0.4)] transition-all border border-red-400/50 hover:brightness-110">Eliminar</button>
         </div>
       </div>
@@ -466,7 +411,7 @@ const App = () => {
   const saveSurvey = async () => {
     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userData.matricula), { encuestaCompletada: true, datosEncuesta: encuesta });
     setShowSurvey(false);
-    alert("Expediente guardado.");
+    alert("Expediente guardado exitosamente.");
   };
 
   const handlePhaseClick = (m) => {
@@ -636,8 +581,8 @@ const App = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         
         <div className="bg-[#0c1220]/80 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/10 w-full max-w-md text-center shadow-[0_30px_60px_rgba(0,0,0,0.6)] relative z-10">
-          <div className="bg-gradient-to-br from-[#0c1220] to-[#131a2a] w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(6,182,212,0.4)] border border-cyan-500/30 overflow-visible">
-            <PremiumActiveIcon className="text-white" size={60} />
+          <div className="bg-gradient-to-br from-cyan-400 to-blue-600 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(6,182,212,0.4)] border border-cyan-300/30 rotate-3 hover:rotate-0 transition-transform duration-500">
+            <Zap className="text-white fill-white" size={48} />
           </div>
           <h1 className="text-3xl font-black text-white uppercase italic tracking-tighter drop-shadow-md">Reto <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Actívate</span></h1>
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">DAES • Promoción de la Cultura Física</p>
@@ -707,8 +652,8 @@ const App = () => {
 
             <p className="text-[11px] font-bold text-slate-300 leading-relaxed mb-8 px-2">{medalModal.detail}</p>
 
-            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="w-full py-4 bg-[#1a2235] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#232d46] transition-all border border-white/5 shadow-md">
-              Cerrar Detalle
+            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="w-full py-4 mt-2 bg-[#1a2235] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#232d46] transition-all border border-white/5 shadow-md flex items-center justify-center gap-2">
+              <ArrowLeft size={16}/> Regresar
             </button>
           </div>
         </div>
@@ -752,6 +697,10 @@ const App = () => {
                    <ReadOnlyField label="Horario de contacto" value={adminSurveyView.data?.horarioContacto} />
                  </div>
                </div>
+
+               <button onClick={() => setAdminSurveyView({show: false, data: null, studentName: ''})} className="w-full py-6 mt-8 bg-[#131a2a] hover:bg-[#1e273c] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
+                 <ArrowLeft size={20}/> Cerrar y Regresar
+               </button>
             </div>
           </div>
         </div>
@@ -761,8 +710,8 @@ const App = () => {
         
         <header className="mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-[#0c1220] to-[#131a2a] p-3 md:p-4 rounded-2xl shadow-[0_5px_15px_rgba(6,182,212,0.3)] border border-cyan-500/30">
-              <PremiumActiveIcon className="text-white" size={32} />
+            <div className="bg-gradient-to-br from-cyan-400 to-blue-600 p-3 md:p-4 rounded-2xl shadow-[0_5px_15px_rgba(6,182,212,0.3)] border border-cyan-300/30">
+              <Zap className="text-white fill-white" size={28} />
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter leading-none drop-shadow-md">Reto <span className="text-cyan-400">Actívate</span></h1>
@@ -1282,8 +1231,8 @@ const App = () => {
           <div className="bg-gradient-to-b from-[#0c1220] to-[#080b14] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
             <button onClick={() => setShowSurvey(false)} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
             <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md"><Stethoscope size={32} className="text-indigo-400"/> Expediente Clínico</h2>
+            
             <div className="space-y-6">
-               
                <div className="flex flex-col gap-4 bg-[#131a2a]/50 p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
                  <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud y Seguridad</h4>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1311,9 +1260,14 @@ const App = () => {
                  </div>
                </div>
 
-               <button onClick={saveSurvey} className="w-full py-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] shadow-[0_15px_30px_rgba(99,102,241,0.4)] hover:brightness-110 transition-all border border-indigo-400/50 mt-4">
-                 Enviar Expediente
-               </button>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                 <button onClick={() => setShowSurvey(false)} className="w-full py-5 md:py-6 bg-[#131a2a] hover:bg-[#1a2235] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
+                   <ArrowLeft size={20}/> Regresar
+                 </button>
+                 <button onClick={saveSurvey} className="w-full py-5 md:py-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(99,102,241,0.4)] hover:brightness-110 transition-all border border-indigo-400/50 flex items-center justify-center gap-3">
+                   <Save size={20}/> Enviar Expediente
+                 </button>
+               </div>
             </div>
           </div>
         </div>
