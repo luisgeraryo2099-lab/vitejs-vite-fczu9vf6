@@ -5,23 +5,18 @@ import {
   ArrowUpRight, Info, Lock, School, Sparkles, Loader2, X, Stethoscope, 
   Trophy, Star, LogOut, LogIn, UserPlus, Users, Eye, Key, AlertTriangle, FileUp, FileSpreadsheet, ShieldCheck,
   Flame, BicepsFlexed, ShieldAlert, Crown, PlayCircle, CheckCircle2, Apple, Video, ChevronRight, PlusCircle,
-  Mail, Phone, Clock, ArrowLeft, FileText
+  Mail, Phone, Clock, ArrowLeft, FileText, List
 } from 'lucide-react';
 
-// Firebase Imports
 import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
-} from 'firebase/auth';
-import { 
-  getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, deleteDoc, updateDoc, arrayUnion
-} from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-// --- CONFIGURACIÓN FIREBASE HÍBRIDA ---
+// --- CONFIGURACIÓN FIREBASE ---
 let firebaseConfig;
 try {
   firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-  if (!firebaseConfig.apiKey) throw new Error("Fallback a configuración manual");
+  if (!firebaseConfig.apiKey) throw new Error("Fallback manual");
 } catch (e) {
   firebaseConfig = {
     apiKey: "AIzaSyBi8Iw_DDqiW6duwgJEbIjIl2QiEjWhoFE",
@@ -29,8 +24,7 @@ try {
     projectId: "reto-activate-dd3cb",
     storageBucket: "reto-activate-dd3cb.firebasestorage.app",
     messagingSenderId: "230551697596",
-    appId: "1:230551697596:web:6fc8a801f9445e74ea78b9",
-    measurementId: "G-7HXE5F4TZC"
+    appId: "1:230551697596:web:6fc8a801f9445e74ea78b9"
   };
 }
 
@@ -39,67 +33,58 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'reto-activate-buap';
 
-// Carga externa de XLSX para manejo de Excel
-const loadXLSX = () => {
-  return new Promise((resolve) => {
-    if (window.XLSX) return resolve();
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    script.onload = resolve;
-    document.head.appendChild(script);
-  });
-};
+const loadXLSX = () => new Promise((resolve) => {
+  if (window.XLSX) return resolve();
+  const script = document.createElement('script');
+  script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  script.onload = resolve;
+  document.head.appendChild(script);
+});
 
-// --- CONSTANTES ---
 const UNIDADES_ACADEMICAS = [
-  "Dirección de Atención Estudiantil",
-  "Facultad de Administración", "Facultad de Arquitectura", "Facultad de Artes",
-  "Facultad de Artes Plásticas y Audiovisuales", "Facultad de Ciencias Agrícolas y Pecuarias",
-  "Facultad de Ciencias Biológicas", "Facultad de Ciencias de la Computación",
-  "Facultad de Ciencias de la Comunicación", "Facultad de Ciencias de la Electrónica",
-  "Facultad de Ciencias Físico Matemáticas", "Facultad de Ciencias Políticas y Sociales",
-  "Facultad de Ciencias Químicas", "Facultad de Contaduría Pública",
-  "Facultad de Cultura Física", "Facultad de Derecho", "Facultad de Economía",
-  "Facultad de Enfermería", "Facultad de Estomatología", "Facultad de Filosofía y Letras",
-  "Facultad de Ingeniería", "Facultad de Ingeniería Química", "Facultad de Lenguas",
-  "Facultad de Medicina", "Facultad de Medicina Veterinaria y Zootecnia",
-  "Facultad de Psicología", "Escuela de Biología", "Instituto de Ciencias (ICUAP)",
-  "Instituto de Ciencias de Gobierno y Desarrollo Estratégico", "Instituto de Ciencias Sociales y Humanidades \"Alfonso Vélez Pliego\"",
-  "Instituto de Física \"Ing. Luis Rivera Terrazas\"", "Instituto de Fisiología",
-  "Bachillerato Internacional \"5 de Mayo\"", "Preparatoria \"2 de Octubre de 1968\"",
-  "Preparatoria \"Alfonso Calderón Moreno\"", "Preparatoria \"Emiliano Zapata\"",
-  "Preparatoria \"Gral. Lázaro Cárdenas del Río\"", "Preparatoria \"Lic. Benito Juárez García\"",
-  "Preparatoria Regional \"Enrique Cabrera Barroso\"", "Preparatoria Regional \"Simón Bolívar\"",
-  "Preparatoria Urbana \"Enrique Cabrera Barroso\"", "Complejo Regional Centro",
-  "Complejo Regional Mixteca", "Complejo Regional Nororiental",
-  "Complejo Regional Norte", "Complejo Regional Sur"
+  "Dirección de Atención Estudiantil", "Facultad de Administración", "Facultad de Arquitectura", "Facultad de Artes",
+  "Facultad de Artes Plásticas y Audiovisuales", "Facultad de Ciencias Agrícolas y Pecuarias", "Facultad de Ciencias Biológicas", 
+  "Facultad de Ciencias de la Computación", "Facultad de Ciencias de la Comunicación", "Facultad de Ciencias de la Electrónica",
+  "Facultad de Ciencias Físico Matemáticas", "Facultad de Ciencias Políticas y Sociales", "Facultad de Ciencias Químicas", 
+  "Facultad de Contaduría Pública", "Facultad de Cultura Física", "Facultad de Derecho", "Facultad de Economía",
+  "Facultad de Enfermería", "Facultad de Estomatología", "Facultad de Filosofía y Letras", "Facultad de Ingeniería", 
+  "Facultad de Ingeniería Química", "Facultad de Lenguas", "Facultad de Medicina", "Facultad de Medicina Veterinaria y Zootecnia", "Facultad de Psicología"
 ];
-const CATEGORIAS_CONTENIDO = ["Nutrición", "Cultura Física"];
 const MESES = ["Mes 1", "Mes 2", "Mes 3"];
+const CATEGORIAS_CONTENIDO = ["Nutrición", "Cultura Física"];
 
-const getNormalizedVideos = (videosObj, mes, cat) => {
-  if (!videosObj) return [];
-  const key = `${mes}-${cat}`;
-  const val = videosObj[key];
-  if (Array.isArray(val)) return val;
-  if (typeof val === 'string' && val.trim() !== '') return [val];
-  return [];
+// --- DICCIONARIOS ESTRUCTURALES ---
+const SURVEY_CONFIG = [
+  { title: "I. Salud Física y Clínica", color: "indigo", fields: [ { label: "Condición Crónica", key: "condicionMedica" }, { label: "Dolor Crónico/Lesiones", key: "dolorCronico" }, { label: "Limitación Específica", key: "limitacionEspecifica" }, { label: "Medicamentos", key: "medicamentos" }, { label: "Defectos de postura", key: "defectosPostura" }, { label: "Antecedentes Familiares", key: "antecedentesFamiliares" } ] },
+  { title: "II. Objetivos y Actividad", color: "rose", fields: [ { label: "Objetivo principal", key: "objetivoPrincipal" }, { label: "Nivel actividad física", key: "nivelActividad" }, { label: "Deporte en el pasado", key: "deportePasado" }, { label: "Actividades atractivas", key: "actividadesAtractivas" } ] },
+  { title: "III. Logística de Entrenamiento", color: "orange", fields: [ { label: "Tiempo disponible", key: "tiempoEntreno" }, { label: "Lugar de entreno", key: "lugarEntreno" }, { label: "Implementos en casa", key: "implementos" }, { label: "Cardio y Fuerza", key: "incluyeCardioFuerza" }, { label: "Mayor obstáculo", key: "obstaculoConstancia" } ] },
+  { title: "IV. Bienestar y Estilo de Vida", color: "cyan", fields: [ { label: "Calidad de sueño", key: "calidadSueno" }, { label: "Nivel de energía", key: "nivelEnergia" }, { label: "Tipo de motivación", key: "tipoMotivacion" } ] },
+  { title: "V. Contacto Institucional", color: "emerald", fields: [ { label: "Correo Institucional", key: "correoInstitucional", icon: Mail }, { label: "Teléfono", key: "telefono", icon: Phone }, { label: "Horario contacto", key: "horarioContacto", icon: Clock } ] }
+];
+
+const BAREMOS_INFO = {
+  imc: { h: ['Clasificación', 'Puntaje'], r: [ { l: 'Bajo Peso', v: '< 18.5', c: 'text-blue-400' }, { l: 'Saludable', v: '18.5 - 24.9', c: 'text-emerald-400' }, { l: 'Sobrepeso', v: '25.0 - 29.9', c: 'text-yellow-400' }, { l: 'Obesidad', v: '≥ 30.0', c: 'text-red-400' } ] },
+  icc: { h: ['Clasificación', 'Mujeres', 'Hombres'], r: [ { l: 'Bajo Riesgo', v: '< 0.80', v2: '< 0.95', c: 'text-emerald-400' }, { l: 'Riesgo Medio', v: '0.80 - 0.85', v2: '0.95 - 1.0', c: 'text-yellow-400' }, { l: 'Riesgo Alto', v: '> 0.85', v2: '> 1.0', c: 'text-red-400' } ] },
+  gc: { h: ['Clasificación', 'Mujeres (<40a)', 'Hombres (<40a)'], r: [ { l: 'Bajo', v: '< 21.0%', v2: '< 8.0%', c: 'text-blue-400' }, { l: 'Normal', v: '21.0% - 32.9%', v2: '8.0% - 19.9%', c: 'text-emerald-400' }, { l: 'Elevado', v: '33.0% - 38.9%', v2: '20.0% - 24.9%', c: 'text-yellow-400' }, { l: 'Muy Elevado', v: '≥ 39.0%', v2: '≥ 25.0%', c: 'text-red-400' } ] },
+  gv: { h: ['Nivel de Riesgo', 'Escala Visceral'], r: [ { l: 'Normal', v: '1 - 9', c: 'text-emerald-400' }, { l: 'Alto', v: '10 - 14', c: 'text-orange-400' }, { l: 'Muy Alto', v: '≥ 15', c: 'text-red-400' } ] },
+  me: { h: ['Clasificación', 'Mujeres (<40a)', 'Hombres (<40a)'], r: [ { l: 'Bajo', v: '< 24.3%', v2: '< 33.3%', c: 'text-red-400' }, { l: 'Normal', v: '24.3% - 30.3%', v2: '33.3% - 39.3%', c: 'text-emerald-400' }, { l: 'Atleta', v: '30.4% - 35.3%', v2: '39.4% - 44.0%', c: 'text-blue-400' }, { l: 'Muy Elevado', v: '≥ 35.4%', v2: '≥ 44.1%', c: 'text-purple-400' } ] },
+  ruf: { h: ['Estado de Forma', 'Índice (Pts)'], r: [ { l: 'Excelente', v: '0', c: 'text-blue-400' }, { l: 'Bueno', v: '0.1 - 5.0', c: 'text-emerald-400' }, { l: 'Regular', v: '5.1 - 10.0', c: 'text-yellow-400' }, { l: 'Malo', v: '> 10.0', c: 'text-red-400' } ] },
+  sup: { h: ['Clasificación', 'Mujeres (<29a)', 'Hombres (<29a)'], r: [ { l: 'Excelente', v: '≥ 30 reps', v2: '≥ 36 reps', c: 'text-emerald-400' }, { l: 'Bueno', v: '15 - 29 reps', v2: '22 - 35 reps', c: 'text-blue-400' }, { l: 'Promedio', v: '12 - 14 reps', v2: '17 - 21 reps', c: 'text-yellow-400' }, { l: 'Pobre', v: '< 12 reps', v2: '< 17 reps', c: 'text-red-400' } ] },
+  inf: { h: ['Clasificación', 'Mujeres', 'Hombres'], r: [ { l: 'Excelente', v: '> 44 reps', v2: '> 48 reps', c: 'text-emerald-400' }, { l: 'Bueno', v: '39 - 44 reps', v2: '43 - 48 reps', c: 'text-blue-400' }, { l: 'Promedio', v: '33 - 38 reps', v2: '37 - 42 reps', c: 'text-yellow-400' }, { l: 'Regular', v: '29 - 32 reps', v2: '33 - 36 reps', c: 'text-orange-400' }, { l: 'Malo', v: '< 29 reps', v2: '< 33 reps', c: 'text-red-400' } ] }
 };
 
-// --- COMPONENTES AUXILIARES ---
+// --- COMPONENTES UI MODULARES ---
 const ModalConfirmacion = ({ isOpen, onClose, onConfirm, titulo, mensaje }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0f172a] border border-white/10 p-8 rounded-[2.5rem] max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300">
-        <div className="bg-red-500/20 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30">
-          <AlertTriangle className="text-red-500" size={32} />
-        </div>
-        <h3 className="text-xl font-black text-white text-center mb-2 uppercase tracking-tighter">{titulo}</h3>
-        <p className="text-slate-400 text-sm text-center mb-8 font-medium leading-relaxed">{mensaje}</p>
-        <div className="grid grid-cols-2 gap-4 relative z-10">
-          <button onClick={onClose} className="py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all flex items-center justify-center gap-2">Cancelar</button>
-          <button onClick={onConfirm} className="py-4 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-[0_10px_20px_rgba(225,29,72,0.4)] transition-all hover:brightness-110">Sí, Eliminar</button>
+      <div className="bg-[#0f172a] border border-white/10 p-8 rounded-[2.5rem] max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.8)] text-center animate-in zoom-in-95">
+        <div className="bg-red-500/20 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30"><AlertTriangle className="text-red-500" size={32} /></div>
+        <h3 className="text-xl font-black text-white mb-2 uppercase">{titulo}</h3>
+        <p className="text-slate-400 text-sm mb-8">{mensaje}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <button onClick={onClose} className="py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] hover:bg-slate-700">Cancelar</button>
+          <button onClick={onConfirm} className="py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] hover:bg-red-500">Eliminar</button>
         </div>
       </div>
     </div>
@@ -108,28 +93,28 @@ const ModalConfirmacion = ({ isOpen, onClose, onConfirm, titulo, mensaje }) => {
 
 const InputField = ({ label, name, value, onChange, type = "text", icon: Icon, placeholder, unit, colorClass = "blue", disabled = false }) => {
   const themes = {
-    blue: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_10px_25px_rgba(59,130,246,0.3)] text-white border-b-4 border-blue-700",
-    indigo: "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-[0_10px_25px_rgba(99,102,241,0.3)] text-white border-b-4 border-indigo-700",
-    emerald: "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_10px_25px_rgba(16,185,129,0.3)] text-white border-b-4 border-emerald-700",
-    purple: "bg-gradient-to-br from-purple-500 to-purple-700 shadow-[0_10px_25px_rgba(168,85,247,0.3)] text-white border-b-4 border-purple-800",
-    rose: "bg-gradient-to-br from-rose-400 to-rose-600 shadow-[0_10px_25px_rgba(225,29,72,0.3)] text-white border-b-4 border-rose-700",
-    cyan: "bg-gradient-to-br from-cyan-400 to-cyan-600 shadow-[0_10px_25px_rgba(6,182,212,0.3)] text-white border-b-4 border-cyan-700",
-    orange: "bg-gradient-to-br from-orange-400 to-orange-500 shadow-[0_10px_25px_rgba(249,115,22,0.3)] text-white border-b-4 border-orange-600",
-    yellow: "bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_10px_25px_rgba(245,158,11,0.3)] text-white border-b-4 border-orange-600",
+    blue: "bg-gradient-to-br from-blue-500/10 to-blue-600/10 text-white border-white/10",
+    indigo: "bg-gradient-to-br from-indigo-500/10 to-indigo-600/10 text-white border-white/10",
+    emerald: "bg-gradient-to-br from-emerald-400/10 to-emerald-600/10 text-white border-white/10",
+    purple: "bg-gradient-to-br from-purple-500/10 to-purple-700/10 text-white border-white/10",
+    rose: "bg-gradient-to-br from-rose-400/10 to-rose-600/10 text-white border-white/10",
+    cyan: "bg-gradient-to-br from-cyan-400/10 to-cyan-600/10 text-white border-white/10",
+    orange: "bg-gradient-to-br from-orange-400/10 to-orange-500/10 text-white border-white/10",
+    yellow: "bg-gradient-to-br from-amber-400/10 to-orange-500/10 text-white border-white/10"
   };
   const theme = themes[colorClass] || themes.blue;
-  const interactionClasses = disabled ? "opacity-60 grayscale-[0.3] cursor-not-allowed" : "hover:scale-[1.02] focus-within:scale-[1.02] focus-within:shadow-2xl";
+  const interactionClasses = disabled ? "opacity-50 grayscale cursor-not-allowed" : "hover:border-cyan-500 focus-within:border-cyan-500 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.2)]";
 
   return (
-    <div className={`relative flex flex-col justify-center w-full p-4 md:p-5 rounded-[2rem] transition-transform ${interactionClasses} ${theme}`}>
-      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md">
+    <div className={`relative flex flex-col justify-center w-full p-4 md:p-5 rounded-[2rem] border transition-all ${interactionClasses} ${theme}`}>
+      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md text-cyan-400">
         {Icon && <Icon size={14} />}
         <label className="text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-none truncate">{label}</label>
       </div>
       <div className="flex items-center justify-between">
         <input
           type={type} name={name} value={value || ""} onChange={onChange} placeholder={placeholder} disabled={disabled}
-          className={`w-full bg-transparent outline-none text-xl md:text-2xl font-black placeholder:text-white/40 text-white drop-shadow-md ${disabled ? 'cursor-not-allowed' : ''}`}
+          className="w-full bg-transparent outline-none text-xl md:text-2xl font-black placeholder:text-white/40 text-white drop-shadow-md disabled:cursor-not-allowed"
         />
         {unit && <span className="text-[10px] font-black uppercase opacity-70 ml-2 drop-shadow-md whitespace-nowrap">{unit}</span>}
       </div>
@@ -138,21 +123,17 @@ const InputField = ({ label, name, value, onChange, type = "text", icon: Icon, p
 };
 
 const SelectField = ({ label, name, value, onChange, options, icon: Icon, colorClass = "blue", disabled = false }) => {
-  const themes = {
-    blue: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_10px_25px_rgba(59,130,246,0.3)] text-white border-b-4 border-blue-700",
-  };
-  const theme = themes[colorClass] || themes.blue;
-  const interactionClasses = disabled ? "opacity-60 grayscale-[0.3] cursor-not-allowed" : "hover:scale-[1.02] focus-within:scale-[1.02] focus-within:shadow-2xl";
+  const interactionClasses = disabled ? "opacity-50 grayscale cursor-not-allowed" : "hover:border-cyan-500 focus-within:border-cyan-500 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.2)]";
 
   return (
-    <div className={`relative flex flex-col justify-center w-full p-5 rounded-[2rem] transition-transform ${interactionClasses} ${theme}`}>
-      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md">
+    <div className={`relative flex flex-col justify-center w-full p-5 rounded-[2rem] border border-white/10 bg-gradient-to-br from-blue-500/10 to-blue-600/10 transition-all ${interactionClasses}`}>
+      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md text-cyan-400">
         {Icon && <Icon size={16} />}
         <label className="text-[11px] font-black uppercase tracking-widest">{label}</label>
       </div>
       <select
         name={name} value={value || ""} onChange={onChange} disabled={disabled}
-        className={`w-full bg-transparent outline-none text-lg font-black text-white appearance-none drop-shadow-md ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        className="w-full bg-transparent outline-none text-lg font-black text-white appearance-none cursor-pointer disabled:cursor-not-allowed"
       >
         <option value="" className="bg-slate-900 text-slate-400">Seleccionar...</option>
         {options.map(o => <option key={o.value || o} value={o.value || o} className="bg-slate-900 text-white">{o.label || o}</option>)}
@@ -162,7 +143,7 @@ const SelectField = ({ label, name, value, onChange, options, icon: Icon, colorC
 };
 
 const ReadOnlyField = ({ label, value }) => (
-  <div className="flex flex-col p-4 bg-[#0c1220]/50 rounded-[1.5rem] border border-white/5">
+  <div className="flex flex-col p-4 bg-[#0c1220]/50 rounded-2xl border border-white/5">
      <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1 opacity-80">{label}</span>
      <span className="text-sm font-bold text-white">{value || "No especificado"}</span>
   </div>
@@ -177,10 +158,10 @@ const ProgressLineChart = ({ data, label, unit, colorKey }) => {
 
   const maxVal = Math.max(...validData.map(d => Math.abs(parseFloat(d.value) || 0)), 1) * 1.3;
   const colorMaps = {
-    blue: { stroke: "#3b82f6" }, purple: { stroke: "#a855f7" }, yellow: { stroke: "#f59e0b" }, emerald: { stroke: "#10b981" },
-    rose: { stroke: "#f43f5e" }, cyan: { stroke: "#06b6d4" }, indigo: { stroke: "#6366f1" }, orange: { stroke: "#f97316" }
+    blue: "#3b82f6", purple: "#a855f7", yellow: "#f59e0b", emerald: "#10b981",
+    rose: "#f43f5e", cyan: "#06b6d4", indigo: "#6366f1", orange: "#f97316"
   };
-  const theme = colorMaps[colorKey] || colorMaps.blue;
+  const strokeColor = colorMaps[colorKey] || colorMaps.blue;
 
   const points = data.map((item, idx) => {
     const x = (idx / (data.length - 1 || 1)) * 100;
@@ -194,21 +175,21 @@ const ProgressLineChart = ({ data, label, unit, colorKey }) => {
 
   return (
     <div className="bg-[#0f172a]/60 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/5 shadow-xl group hover:border-white/10 transition-all duration-300 relative overflow-hidden">
-      <div className={`absolute top-0 right-0 w-32 h-32 blur-[50px] opacity-20 rounded-full pointer-events-none`} style={{backgroundColor: theme.stroke}}></div>
+      <div className="absolute top-0 right-0 w-32 h-32 blur-[50px] opacity-20 rounded-full pointer-events-none" style={{backgroundColor: strokeColor}}></div>
       <div className="flex justify-between items-center mb-6 relative z-10">
-        <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2" style={{color: theme.stroke}}>
+        <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2" style={{color: strokeColor}}>
           <TrendingUp size={14} /> {label}
         </h4>
         <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">{unit}</span>
       </div>
       <div className="relative h-40 w-full mb-4 z-10">
         <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-          <path d={`${pathData} L 100 100 L 0 100 Z`} fill={theme.stroke} fillOpacity="0.1" />
-          <path d={pathData} fill="none" stroke={theme.stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 4px 6px ${theme.stroke}40)` }} />
+          <path d={`${pathData} L 100 100 L 0 100 Z`} fill={strokeColor} fillOpacity="0.1" />
+          <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 4px 6px ${strokeColor}40)` }} />
           {points.map((p, i) => (
             <g key={i} onClick={() => setSelectedPoint(i === selectedPoint ? null : i)} className="cursor-pointer">
               <circle cx={p.x} cy={p.y} r="10" fill="transparent" />
-              <circle cx={p.x} cy={p.y} r={selectedPoint === i ? "5" : "3"} fill={theme.stroke} className="transition-all duration-300" style={{ filter: `drop-shadow(0 0 8px ${theme.stroke})` }}/>
+              <circle cx={p.x} cy={p.y} r={selectedPoint === i ? "5" : "3"} fill={strokeColor} className="transition-all duration-300" style={{ filter: `drop-shadow(0 0 8px ${strokeColor})` }}/>
               {(selectedPoint === i || points.length === 1) && (
                 <text x={p.x} y={p.y - 12} textAnchor="middle" className="text-[8px] font-black fill-white drop-shadow-md">{p.val}</text>
               )}
@@ -223,7 +204,7 @@ const ProgressLineChart = ({ data, label, unit, colorKey }) => {
   );
 };
 
-// --- APP PRINCIPAL ---
+// --- APLICACIÓN PRINCIPAL ---
 const App = () => {
   const [currentUser, setCurrentUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
@@ -238,6 +219,7 @@ const App = () => {
   
   const [showSurvey, setShowSurvey] = useState(false);
   const [adminSurveyView, setAdminSurveyView] = useState({ show: false, data: null, student: null });
+  const [baremosModal, setBaremosModal] = useState({ show: false, key: null, title: '', colorClass: 'blue', icon: null });
   
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null, type: null, label: '' });
   const [medalModal, setMedalModal] = useState({ show: false, title: '', desc: '', detail: '', icon: null, themeClass: '', colorClass: '', active: false });
@@ -250,22 +232,26 @@ const App = () => {
   const [datosRegistro, setDatosRegistro] = useState({
     nombre: '', matricula: '', unidadAcademica: '', edad: '', sexo: 'M', etapa: 'Inicial',
     peso: '', talla: '', cintura: '', cadera: '', p0: '', p1: '', p2: '', 
-    trenSuperior: '', trenInferior: '', 
-    grasaCorporal: '', grasaVisceral: '', musculoEsqueletico: ''
+    trenSuperior: '', trenInferior: '', grasaCorporal: '', grasaVisceral: '', musculoEsqueletico: ''
   });
   
-  // Alta Administrador (SIN sexo y edad)
   const [nuevoEstudiante, setNuevoEstudiante] = useState({ matricula: '', password: '', nombre: '', unidadAcademica: '' });
   
   const [encuesta, setEncuesta] = useState({
     condicionMedica: '', dolorCronico: '', limitacionEspecifica: '', medicamentos: '', defectosPostura: '', antecedentesFamiliares: '',
     objetivoPrincipal: '', nivelActividad: '', deportePasado: '', actividadesAtractivas: '',
     tiempoEntreno: '', lugarEntreno: '', implementos: '', incluyeCardioFuerza: '', obstaculoConstancia: '',
-    calidadSueno: '', nivelEnergia: '', tipoMotivacion: '',
-    correoInstitucional: '', telefono: '', horarioContacto: ''
+    calidadSueno: '', nivelEnergia: '', tipoMotivacion: '', correoInstitucional: '', telefono: '', horarioContacto: ''
   });
 
-  const mesesEtapas = ["Inicial", "Mes 1", "Mes 2", "Mes 3"];
+  const getNormalizedVideos = (videosObj, mes, cat) => {
+    if (!videosObj) return [];
+    const key = `${mes}-${cat}`;
+    const val = videosObj[key];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string' && val.trim() !== '') return [val];
+    return [];
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -299,69 +285,20 @@ const App = () => {
       } else {
         setHistorial(data);
       }
-    }, (err) => console.error("Snapshot Evaluations Error"));
+    });
 
     let unsubUsers = () => {};
     if (userData.role === 'admin') {
       const userCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
       unsubUsers = onSnapshot(userCol, (snapshot) => {
         setUsuariosLista(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      }, (err) => console.error("Snapshot Users Error"));
+      });
     }
-    return () => { unsubEvals(); unsubUsers(); };
+    const unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global'), d => { 
+      if (d.exists()) setConfigGlobal(d.data());
+    });
+    return () => { unsubEvals(); unsubUsers(); unsubConfig(); };
   }, [currentUser, userData]);
-
-  const downloadTemplate = () => {
-    if (!window.XLSX) return alert("Librería de Excel cargando...");
-    const data = [
-      ["Nombre", "Matricula", "Password", "Unidad Academica"],
-      ["Juan Perez", "2024111", "Clave123", "Facultad de Administración"],
-      ["Maria Lopez", "2024222", "Clave456", "Facultad de Medicina"]
-    ];
-    const ws = window.XLSX.utils.aoa_to_sheet(data);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Alumnos");
-    window.XLSX.writeFile(wb, "Plantilla_Alumnos_Reto.xlsx");
-  };
-
-  const handleExcelUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target.result;
-        const wb = window.XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = window.XLSX.utils.sheet_to_json(ws);
-
-        let successCount = 0;
-        for (const row of data) {
-          const matricula = String(row.Matricula || row.matricula || "").trim().toUpperCase();
-          if (!matricula) continue;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', matricula), {
-            nombre: String(row.Nombre || row.nombre || ""),
-            matricula,
-            password: String(row.Password || row.password || "RETO123"),
-            unidadAcademica: String(row["Unidad Academica"] || row.unidadAcademica || ""),
-            role: 'student',
-            videosVistos: []
-          });
-          successCount++;
-        }
-        alert(`¡Importación completada! ${successCount} alumnos registrados.`);
-      } catch (err) {
-        alert("Error al procesar el Excel. Verifique el formato.");
-      } finally {
-        setIsImporting(false);
-        e.target.value = null;
-      }
-    };
-    reader.readAsBinaryString(file);
-  };
 
   const handleLogin = async () => {
     setLoginError("");
@@ -415,7 +352,7 @@ const App = () => {
     const header = "Fecha,Matricula,Nombre,Etapa,Ruffier,Sup,Inf,GrasaCorp,GrasaVisc,MusculoEsq\n";
     const dataRows = historial.map(h => `${h.fecha},${h.matricula},${h.nombre},${h.etapa},${h.ruffierVal},${h.trenSuperior},${h.trenInferior},${h.grasaCorporal||''},${h.grasaVisceral||''},${h.musculoEsqueletico||''}`).join("\n");
     const blob = new Blob([header + dataRows], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = "Reporte_DAES_BUAP.csv"; a.click();
   };
@@ -445,7 +382,6 @@ const App = () => {
     alert("Expediente guardado exitosamente.");
   };
 
-  // --- CONTENIDOS / VIDEOS LOGIC ---
   const toggleUnlock = async (mes, cat) => {
     const key = `${mes}-${cat}`;
     const newStatus = !configGlobal.desbloqueos?.[key];
@@ -481,17 +417,15 @@ const App = () => {
     const key = `${mes}-${cat}`;
     const videosList = getNormalizedVideos(configGlobal.videos, mes, cat);
     if (videosList.length === 0) return false; 
-    return videosList.every((_, i) => userData.videosVistos?.includes(`${key}-${i}`) || (i === 0 && userData.videosVistos?.includes(key)));
+    return videosList.every((_, i) => (userData.videosVistos||[]).includes(`${key}-${i}`) || (i === 0 && (userData.videosVistos||[]).includes(key)));
   };
 
-  // --- GENERADOR DE WORD ---
   const descargarExpedienteWord = () => {
     if (!adminSurveyView.student || !adminSurveyView.data) return;
     const std = adminSurveyView.student;
     const enc = adminSurveyView.data;
     const fases = ['Inicial', 'Mes 1', 'Mes 2', 'Mes 3'];
     
-    // Obtenemos las evaluaciones cruzando la matrícula del estudiante seleccionado y la fase
     const getFase = (etapa) => historial.find(h => h.matricula === std.matricula && h.etapa === etapa) || {};
     
     const metricas = [
@@ -509,82 +443,51 @@ const App = () => {
       { key: 'trenInferior', label: 'Fuerza Tren Inferior (Reps)' }
     ];
 
-    let html = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    const rowsHTML = metricas.map(m => {
+      const cellsHTML = fases.map(f => `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: bold;">${getFase(f)[m.key] || '-'}</td>`).join('');
+      return `<tr><td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold; text-align: left;">${m.label}</td>${cellsHTML}</tr>`;
+    }).join('');
+
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
-        <meta charset='utf-8'>
+        <meta charset="utf-8">
         <title>Expediente Clínico - ${std.matricula}</title>
-        <style>
-          body { font-family: 'Calibri', sans-serif; }
-          h1 { color: #0f172a; text-align: center; font-size: 24px; text-transform: uppercase; }
-          h2 { color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
-          th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
-          th { background-color: #f1f5f9; color: #334155; font-weight: bold; width: 25%; }
-          td { color: #0f172a; width: 25%; }
-          .fase-th { text-align: center; background-color: #e2e8f0; width: 16%; }
-          .fase-td { text-align: center; font-weight: bold; }
-          .param-th { width: 36%; }
-        </style>
       </head>
-      <body>
-        <h1>Expediente Clínico y de Rendimiento</h1>
+      <body style="font-family: Arial, sans-serif;">
+        <h1 style="color: #0f172a; text-align: center; font-size: 24px; text-transform: uppercase;">Expediente Clínico y de Rendimiento</h1>
         <p style="text-align:center; color:#64748b; font-weight:bold;">Reto Actívate - DAES BUAP</p>
         
-        <h2>I. Ficha de Identificación</h2>
-        <table>
-          <tr><th>Nombre Completo</th><td>${std.nombre || 'No registrado'}</td><th>Matrícula Institucional</th><td>${std.matricula}</td></tr>
-          <tr><th>Unidad Académica</th><td colspan="3">${std.unidadAcademica || 'No registrado'}</td></tr>
-          <tr><th>Edad</th><td>${std.edad || 'No registrado'}</td><th>Sexo Biológico</th><td>${std.sexo === 'M' ? 'Masculino' : std.sexo === 'F' ? 'Femenino' : 'No registrado'}</td></tr>
+        <h2 style="color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px;">I. Ficha de Identificación</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nombre Completo</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${std.nombre || 'No registrado'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Matrícula Institucional</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${std.matricula}</td></tr>
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Unidad Académica</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;" colspan="3">${std.unidadAcademica || 'No registrado'}</td></tr>
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Edad</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${std.edad || 'No registrado'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Sexo Biológico</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${std.sexo === 'M' ? 'Masculino' : std.sexo === 'F' ? 'Femenino' : 'No registrado'}</td></tr>
         </table>
 
-        <h2>II. Salud Física y Clínica</h2>
-        <table>
-          <tr><th>Condición Crónica</th><td>${enc.condicionMedica || 'Ninguna'}</td><th>Dolor Crónico/Lesión</th><td>${enc.dolorCronico || 'Ninguno'}</td></tr>
-          <tr><th>Limitación Específica</th><td>${enc.limitacionEspecifica || 'Ninguna'}</td><th>Medicamentos Actuales</th><td>${enc.medicamentos || 'Ninguno'}</td></tr>
-          <tr><th>Defectos de Postura</th><td>${enc.defectosPostura || 'Ninguno'}</td><th>Antecedentes Familiares</th><td>${enc.antecedentesFamiliares || 'Ninguno'}</td></tr>
+        <h2 style="color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px;">II. Salud Física y Clínica</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Condición Crónica</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.condicionMedica || 'Ninguna'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Dolor Crónico/Lesión</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.dolorCronico || 'Ninguno'}</td></tr>
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Limitación Específica</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.limitacionEspecifica || 'Ninguna'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Medicamentos Actuales</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.medicamentos || 'Ninguno'}</td></tr>
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Defectos de Postura</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.defectosPostura || 'Ninguno'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Antecedentes Familiares</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.antecedentesFamiliares || 'Ninguno'}</td></tr>
         </table>
 
-        <h2>III. Metas y Experiencia Deportiva</h2>
-        <table>
-          <tr><th>Objetivo Principal</th><td>${enc.objetivoPrincipal || 'No definido'}</td><th>Nivel de Actividad</th><td>${enc.nivelActividad || 'No definido'}</td></tr>
-          <tr><th>Deporte en el Pasado</th><td>${enc.deportePasado || 'Ninguno'}</td><th>Actividades Atractivas</th><td>${enc.actividadesAtractivas || 'Ninguna'}</td></tr>
+        <h2 style="color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px;">III. Metas y Experiencia Deportiva</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Objetivo Principal</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.objetivoPrincipal || 'No definido'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nivel de Actividad</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.nivelActividad || 'No definido'}</td></tr>
+          <tr><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Deporte en el Pasado</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.deportePasado || 'Ninguno'}</td><th style="background-color: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Actividades Atractivas</th><td style="color: #0f172a; border: 1px solid #cbd5e1; padding: 8px;">${enc.actividadesAtractivas || 'Ninguna'}</td></tr>
         </table>
 
-        <h2>IV. Logística de Entrenamiento</h2>
-        <table>
-          <tr><th>Tiempo Disponible</th><td>${enc.tiempoEntreno || 'No definido'}</td><th>Lugar de Entrenamiento</th><td>${enc.lugarEntreno || 'No definido'}</td></tr>
-          <tr><th>Implementos Disponibles</th><td>${enc.implementos || 'Ninguno'}</td><th>Preferencia Cardio/Fuerza</th><td>${enc.incluyeCardioFuerza || 'No definido'}</td></tr>
-          <tr><th>Mayor Obstáculo</th><td colspan="3">${enc.obstaculoConstancia || 'Ninguno'}</td></tr>
-        </table>
-
-        <h2>V. Bienestar y Estilo de Vida</h2>
-        <table>
-          <tr><th>Calidad de Sueño</th><td>${enc.calidadSueno || 'No definido'}</td><th>Nivel de Energía</th><td>${enc.nivelEnergia || 'No definido'}</td></tr>
-          <tr><th>Tipo de Motivación</th><td colspan="3">${enc.tipoMotivacion || 'No definido'}</td></tr>
-        </table>
-
-        <h2>VI. Contacto Institucional</h2>
-        <table>
-          <tr><th>Correo Institucional</th><td>${enc.correoInstitucional || 'No proporcionado'}</td><th>Teléfono de Contacto</th><td>${enc.telefono || 'No proporcionado'}</td></tr>
-          <tr><th>Horario Preferido</th><td colspan="3">${enc.horarioContacto || 'No definido'}</td></tr>
-        </table>
-
-        <h2>VII. Evolución de Pruebas Físicas</h2>
-        <table>
+        <h2 style="color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px;">IV. Evolución de Pruebas Físicas</h2>
+        <table style="width: 100%; border-collapse: collapse; text-align: center; margin-bottom: 20px; font-size: 14px;">
           <tr>
-            <th class="fase-th param-th">Parámetro Evaluado</th>
-            <th class="fase-th">Fase Inicial</th>
-            <th class="fase-th">Mes 1</th>
-            <th class="fase-th">Mes 2</th>
-            <th class="fase-th">Mes 3</th>
+            <th style="text-align: center; background-color: #e2e8f0; width: 36%; border: 1px solid #cbd5e1; padding: 8px;">Parámetro Evaluado</th>
+            <th style="text-align: center; background-color: #e2e8f0; width: 16%; border: 1px solid #cbd5e1; padding: 8px;">Fase Inicial</th>
+            <th style="text-align: center; background-color: #e2e8f0; width: 16%; border: 1px solid #cbd5e1; padding: 8px;">Mes 1</th>
+            <th style="text-align: center; background-color: #e2e8f0; width: 16%; border: 1px solid #cbd5e1; padding: 8px;">Mes 2</th>
+            <th style="text-align: center; background-color: #e2e8f0; width: 16%; border: 1px solid #cbd5e1; padding: 8px;">Mes 3</th>
           </tr>
-          ${metricas.map(m => `
-            <tr>
-              <td><b>${m.label}</b></td>
-              ${fases.map(f => `<td class="fase-td">${getFase(f)[m.key] || '-'}</td>`).join('')}
-            </tr>
-          `).join('')}
+          ${rowsHTML}
         </table>
         
         <br/><br/>
@@ -593,7 +496,7 @@ const App = () => {
       </html>
     `;
 
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -603,18 +506,15 @@ const App = () => {
     document.body.removeChild(link);
   };
 
-  // --- MOTOR CLÍNICO: INTERPRETACIÓN DE DATOS ---
   const resultadosActuales = useMemo(() => {
     const { peso, talla, cintura, cadera, p0, p1, p2, trenSuperior, trenInferior, sexo, edad, grasaCorporal, grasaVisceral, musculoEsqueletico } = datosRegistro;
     const p = parseFloat(peso), t = parseFloat(talla), c = parseFloat(cintura), ca = parseFloat(cadera);
     const gc = parseFloat(grasaCorporal), gv = parseFloat(grasaVisceral), me = parseFloat(musculoEsqueletico);
     
-    // USAMOS EDAD Y SEXO EN TIEMPO REAL
     const gender = sexo || userData?.sexo || 'M';
     const age = parseInt(edad) || parseInt(userData?.edad) || 20; 
     
-    // IMC
-    const imc = (p > 0 && t > 0) ? (p / Math.pow(t/100, 2)).toFixed(1) : null;
+    const imc = (p > 0 && t > 0) ? (p / Math.pow(t / 100, 2)).toFixed(1) : null;
     let imcInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (imc) {
         if (imc < 18.5) imcInterp = { label: "Bajo Peso", color: "text-blue-400", desc: "Aumento sugerido", bg: "bg-blue-500/10 border-blue-500/30" };
@@ -623,7 +523,6 @@ const App = () => {
         else imcInterp = { label: "Obesidad", color: "text-red-400", desc: "Riesgo alto", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // ICC
     const icc = (c > 0 && ca > 0) ? (c / ca).toFixed(2) : null;
     let iccInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (icc) {
@@ -635,7 +534,6 @@ const App = () => {
         else iccInterp = { label: "Riesgo Alto", color: "text-red-400", desc: "Peligro", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // Ruffier
     let ruffierVal = (p0 && p1 && p2) ? (((parseFloat(p0) + parseFloat(p1) + parseFloat(p2)) - 200) / 10).toFixed(1) : null;
     let ruffierInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (ruffierVal) {
@@ -646,7 +544,6 @@ const App = () => {
         else ruffierInterp = { label: "Malo", color: "text-red-400", desc: "Atención Necesaria", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // TREN SUPERIOR
     let supInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (trenSuperior) {
         const v = parseFloat(trenSuperior);
@@ -658,7 +555,6 @@ const App = () => {
         else supInterp = { label: "Pobre", color: "text-red-400", desc: "Deficiente", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // Tren Inferior
     let infInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (trenInferior) {
         const v = parseFloat(trenInferior);
@@ -670,7 +566,6 @@ const App = () => {
         else infInterp = { label: "Malo", color: "text-red-400", desc: "Deficiente", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // GRASA CORPORAL
     let gcInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (!isNaN(gc)) {
       let b = [];
@@ -689,7 +584,6 @@ const App = () => {
       else gcInterp = { label: "Muy Elevado", color: "text-red-400", desc: "Riesgo", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // GRASA VISCERAL
     let gvInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (!isNaN(gv)) {
       if (gv <= 9) gvInterp = { label: "Normal", color: "text-emerald-400", desc: "Saludable", bg: "bg-emerald-500/10 border-emerald-500/30" };
@@ -697,7 +591,6 @@ const App = () => {
       else gvInterp = { label: "Muy Alto", color: "text-red-400", desc: "Peligro", bg: "bg-red-500/10 border-red-500/30" };
     }
 
-    // MÚSCULO ESQUELÉTICO
     let meInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
     if (!isNaN(me)) {
       let b = [];
@@ -753,6 +646,7 @@ const App = () => {
     return { 
       peso: mapData('peso'), ruffier: mapData('ruffierVal'), superior: mapData('trenSuperior'), inferior: mapData('trenInferior'),
       grasaCorporal: mapData('grasaCorporal'), grasaVisceral: mapData('grasaVisceral'), musculoEsqueletico: mapData('musculoEsqueletico'),
+      recs: records,
       highlight 
     };
   }, [historial, userData]);
@@ -792,27 +686,33 @@ const App = () => {
     }
   };
 
+  const renderBaremosTable = (key) => {
+    const tableData = BAREMOS_INFO[key];
+    if (!tableData) return null;
+    return (
+      <table className="w-full text-left text-sm md:text-base border-collapse">
+        <thead className="bg-[#1a1d2d] text-[10px] md:text-[11px] uppercase tracking-widest text-slate-400">
+          <tr>{tableData.h.map((h, i) => <th key={i} className="p-4 border-b border-white/10">{h}</th>)}</tr>
+        </thead>
+        <tbody className="text-white font-bold tracking-tight divide-y divide-white/5">
+          {tableData.r.map((row, i) => (
+            <tr key={i} className="hover:bg-white/5 transition-colors">
+              <td className={`p-4 ${row.c}`}>{row.l}</td>
+              <td className="p-4">{row.v}</td>
+              {row.v2 && <td className="p-4">{row.v2}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
   if (loading) return <div className="min-h-screen bg-[#070913] flex items-center justify-center"><Loader2 className="animate-spin text-cyan-400" size={40} /></div>;
 
   if (!userData) {
     return (
       <div className="min-h-screen bg-[#070913] flex items-center justify-center p-4 relative overflow-hidden">
-        <style>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-150%) skewX(-15deg); }
-            100% { transform: translateX(150%) skewX(-15deg); }
-          }
-          @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(40px, -60px) scale(1.1); }
-            66% { transform: translate(-30px, 30px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
-          }
-          .animate-blob { animation: blob 15s infinite alternate; }
-          .animation-delay-2000 { animation-delay: 2s; }
-          .animation-delay-4000 { animation-delay: 4s; }
-        `}</style>
-        
+        <GlobalStyles />
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
           <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-cyan-600/20 rounded-full blur-[180px] animate-blob"></div>
           <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-purple-600/20 rounded-full blur-[180px] animate-blob animation-delay-2000"></div>
@@ -847,29 +747,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#070913] text-slate-300 font-sans relative overflow-hidden flex flex-col selection:bg-cyan-500/30">
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes floatMedal {
-          0% { transform: translateY(0px) scale(1); }
-          50% { transform: translateY(-10px) scale(1.05); }
-          100% { transform: translateY(0px) scale(1); }
-        }
-        @keyframes shimmer {
-          0% { transform: translateX(-150%) skewX(-15deg); }
-          100% { transform: translateX(150%) skewX(-15deg); }
-        }
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(40px, -60px) scale(1.1); }
-          66% { transform: translate(-30px, 30px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob { animation: blob 15s infinite alternate; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-      `}</style>
-      
+      <GlobalStyles />
       <ModalConfirmacion isOpen={deleteConfirm.show} onClose={() => setDeleteConfirm({ show: false, id: null, type: null, label: '' })} onConfirm={executeDelete} titulo="¿Confirmar Eliminación?" mensaje={`Estás a punto de borrar permanentemente a: ${deleteConfirm.label}.`} />
 
       {/* Fondos fluidos adaptativos */}
@@ -878,6 +756,42 @@ const App = () => {
         <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-purple-600/30 rounded-full blur-[150px] animate-blob animation-delay-2000"></div>
         <div className="absolute top-[30%] left-[30%] w-[40vw] h-[40vw] bg-emerald-600/20 rounded-full blur-[150px] animate-blob animation-delay-4000"></div>
       </div>
+
+      {/* MODAL BAREMOS (TABULACIONES) */}
+      {baremosModal.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setBaremosModal({ ...baremosModal, show: false })}>
+          <div className="bg-gradient-to-b from-[#0f172a] to-[#0a0f1a] border border-white/10 p-6 md:p-8 rounded-[3rem] w-full max-w-[600px] shadow-[0_30px_60px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] relative overflow-hidden flex flex-col items-center animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setBaremosModal({ ...baremosModal, show: false })} className="absolute top-6 right-6 text-slate-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors"><X size={16}/></button>
+
+            {/* Icono del Baremos */}
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 border shadow-inner 
+              bg-gradient-to-br ${
+                baremosModal.colorClass === 'blue' ? 'from-blue-400 to-indigo-600 border-blue-500/50' : 
+                baremosModal.colorClass === 'pink' ? 'from-pink-400 to-rose-600 border-pink-500/50' : 
+                baremosModal.colorClass === 'rose' ? 'from-rose-400 to-pink-600 border-rose-500/50' : 
+                baremosModal.colorClass === 'orange' ? 'from-orange-400 to-red-500 border-orange-500/50' : 
+                baremosModal.colorClass === 'cyan' ? 'from-cyan-300 to-blue-500 border-cyan-500/50' : 
+                baremosModal.colorClass === 'emerald' ? 'from-emerald-400 to-teal-600 border-emerald-500/50' : 
+                baremosModal.colorClass === 'purple' ? 'from-purple-400 to-purple-700 border-purple-500/50' : 
+                'from-indigo-400 to-violet-600 border-indigo-500/50'
+              }`}>
+              {baremosModal.icon && React.createElement(baremosModal.icon, { size: 28, className: "text-white drop-shadow-md" })}
+            </div>
+
+            <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-8 text-white text-center">{baremosModal.title}</h3>
+            
+            <div className="w-full bg-[#131620]/50 rounded-[2rem] p-2 border border-white/5 overflow-x-auto shadow-inner">
+               {renderBaremosTable(baremosModal.key)}
+            </div>
+            
+            <p className="text-[10px] text-slate-500 text-center mt-6 uppercase tracking-widest font-bold max-w-sm">Los valores presentados están basados en las normas de salud y rendimiento físico para la categoría especificada.</p>
+
+            <button onClick={() => setBaremosModal({ ...baremosModal, show: false })} className="w-full py-4 mt-6 bg-[#1a2235] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#232d46] transition-all border border-white/5 shadow-md flex items-center justify-center gap-2">
+              <ArrowLeft size={16}/> Cerrar Información
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODAL INTERACTIVO DE MEDALLAS */}
       {medalModal.show && (
@@ -907,733 +821,597 @@ const App = () => {
         </div>
       )}
 
-      {/* MODAL ADMIN PARA VER ENCUESTA */}
-      {adminSurveyView.show && (
-        <div className="fixed inset-0 z-[9999] bg-[#030509]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in overflow-y-auto pt-10 pb-20">
-          <div className="bg-[#0f172a] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
-            <button onClick={() => setAdminSurveyView({show: false, data: null, student: null})} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
-            <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md">
-               <Stethoscope size={32} className="text-indigo-400"/> 
-               Expediente Clínico
-            </h2>
-            <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-6 mt-[-15px]">Alumno: <span className="text-white">{adminSurveyView.student?.nombre || adminSurveyView.student?.matricula}</span></p>
-
-            <div className="space-y-6">
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud y Seguridad</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Condición Crónica" value={adminSurveyView.data?.condicionMedica} />
-                   <ReadOnlyField label="Dolor Crónico" value={adminSurveyView.data?.dolorCronico} />
-                   <ReadOnlyField label="Limitación Específica" value={adminSurveyView.data?.limitacionEspecifica} />
-                   <ReadOnlyField label="Medicamentos" value={adminSurveyView.data?.medicamentos} />
-                   <ReadOnlyField label="Defectos de postura" value={adminSurveyView.data?.defectosPostura} />
-                   <ReadOnlyField label="Antecedentes Familiares" value={adminSurveyView.data?.antecedentesFamiliares} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">II. Metas y Experiencia</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Objetivo principal" value={adminSurveyView.data?.objetivoPrincipal} />
-                   <ReadOnlyField label="Nivel actividad física" value={adminSurveyView.data?.nivelActividad} />
-                   <ReadOnlyField label="Deporte en el pasado" value={adminSurveyView.data?.deportePasado} />
-                   <ReadOnlyField label="Actividades atractivas" value={adminSurveyView.data?.actividadesAtractivas} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">III. Logística de Entrenamiento</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Tiempo disponible" value={adminSurveyView.data?.tiempoEntreno} />
-                   <ReadOnlyField label="Lugar de entreno" value={adminSurveyView.data?.lugarEntreno} />
-                   <ReadOnlyField label="Implementos en casa" value={adminSurveyView.data?.implementos} />
-                   <ReadOnlyField label="Cardio y Fuerza" value={adminSurveyView.data?.incluyeCardioFuerza} />
-                   <ReadOnlyField label="Mayor obstáculo" value={adminSurveyView.data?.obstaculoConstancia} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">IV. Bienestar y Estilo de Vida</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Calidad de sueño" value={adminSurveyView.data?.calidadSueno} />
-                   <ReadOnlyField label="Nivel de energía" value={adminSurveyView.data?.nivelEnergia} />
-                   <ReadOnlyField label="Tipo de motivación" value={adminSurveyView.data?.tipoMotivacion} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">V. Contacto Institucional</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Correo Institucional" value={adminSurveyView.data?.correoInstitucional} />
-                   <ReadOnlyField label="Teléfono de contacto" value={adminSurveyView.data?.telefono} />
-                   <ReadOnlyField label="Horario de contacto" value={adminSurveyView.data?.horarioContacto} />
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                 <button onClick={() => setAdminSurveyView({show: false, data: null, student: null})} className="w-full py-6 bg-[#1a1d2d] hover:bg-[#24293d] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
-                   <ArrowLeft size={20}/> Regresar
-                 </button>
-                 <button onClick={descargarExpedienteWord} className="w-full py-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(16,185,129,0.4)] hover:brightness-110 transition-all border border-emerald-400/50 flex items-center justify-center gap-3">
-                   <FileText size={20}/> Descargar Word
-                 </button>
-               </div>
-            </div>
+      {/* HEADER Y NAVEGACIÓN GENERAL */}
+      <header className="max-w-7xl mx-auto p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
+        <div className="flex items-center gap-6">
+          <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-5 rounded-[2rem] shadow-[0_0_40px_rgba(6,182,212,0.4)] border border-cyan-400/30">
+             <Zap className="text-white fill-white" size={28} />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-md">Reto <span className="text-cyan-400">Actívate</span></h1>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-90 mt-2">DAES BUAP • {userData.nombre}</p>
           </div>
         </div>
-      )}
+        <nav className="flex bg-[#0f172a]/80 backdrop-blur-xl p-1.5 rounded-3xl border border-white/10 gap-1 shadow-2xl">
+          {userData.role === 'admin' ? (
+            <>
+              <button onClick={() => setActiveTab('usuarios')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'usuarios' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Usuarios</button>
+              <button onClick={() => setActiveTab('historial')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'historial' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Historial</button>
+              <button onClick={() => setActiveTab('contenidos')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'contenidos' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Videos</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setActiveTab('registro')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'registro' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Registro</button>
+              <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'biblioteca' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Contenido</button>
+              <button onClick={() => setActiveTab('evolución')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'evolución' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Evolución</button>
+            </>
+          )}
+          <button onClick={() => userData.role === 'student' && userData.surveyEnabled && setShowSurvey(true)} className={`p-3 rounded-xl transition-all ${userData?.surveyEnabled ? 'text-indigo-400 animate-pulse hover:bg-indigo-500/20' : 'text-slate-600 grayscale hidden'}`}><Stethoscope size={18} /></button>
+          <button onClick={handleLogout} className="p-3 text-red-400 ml-2 hover:bg-red-500/20 hover:text-red-300 rounded-xl transition-all"><LogOut size={18}/></button>
+        </nav>
+      </header>
 
-      {/* MODAL PARA LLENAR ENCUESTA (ALUMNO) */}
-      {showSurvey && (
-        <div className="fixed inset-0 z-[9999] bg-[#030509]/95 backdrop-blur-xl flex flex-col items-center p-4 animate-in fade-in overflow-y-auto pt-10 pb-20">
-          <div className="bg-[#0f172a] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
-            <button onClick={() => setShowSurvey(false)} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
-            <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md"><Stethoscope size={32} className="text-indigo-400"/> Expediente Clínico (Completo)</h2>
-            
-            <div className="space-y-6">
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud Física y Clínica</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Condición Crónica" colorClass="indigo" value={encuesta.condicionMedica} onChange={e => setEncuesta({...encuesta, condicionMedica: e.target.value})} placeholder="Ej. Asma, Diabetes, Ninguna"/>
-                   <InputField label="Dolor Crónico/Lesiones" colorClass="indigo" value={encuesta.dolorCronico} onChange={e => setEncuesta({...encuesta, dolorCronico: e.target.value})} placeholder="Ej. Dolor de rodilla, Ninguno"/>
-                   <InputField label="Limitación Específica" colorClass="indigo" value={encuesta.limitacionEspecifica} onChange={e => setEncuesta({...encuesta, limitacionEspecifica: e.target.value})} placeholder="Para realizar esfuerzo..."/>
-                   <InputField label="Medicamentos actuales" colorClass="indigo" value={encuesta.medicamentos} onChange={e => setEncuesta({...encuesta, medicamentos: e.target.value})} placeholder="Ej. Ninguno"/>
-                   <InputField label="Defectos de postura" colorClass="indigo" value={encuesta.defectosPostura} onChange={e => setEncuesta({...encuesta, defectosPostura: e.target.value})} placeholder="Ej. Escoliosis, pie plano..."/>
-                   <InputField label="Antecedentes Familiares" colorClass="indigo" value={encuesta.antecedentesFamiliares} onChange={e => setEncuesta({...encuesta, antecedentesFamiliares: e.target.value})} placeholder="Ej. Hipertensión..."/>
-                 </div>
-               </div>
+      <main className="max-w-7xl mx-auto px-4 md:px-8 w-full flex-1 relative z-10 pb-20">
+        
+        {/* VISTA ADMIN - USUARIOS */}
+        {userData.role === 'admin' && activeTab === 'usuarios' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in">
+            <div className="lg:col-span-5 space-y-8">
+              <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] h-fit">
+                <h2 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-8 flex items-center gap-3"><UserPlus size={18} /> Alta Estudiante</h2>
+                <div className="space-y-4">
+                  <InputField label="Nombre" value={nuevoEstudiante.nombre} onChange={e => setNuevoEstudiante({...nuevoEstudiante, nombre: e.target.value})} icon={User} placeholder="Nombre completo" type="text" colorClass="blue"/>
+                  <InputField label="Matrícula" value={nuevoEstudiante.matricula} onChange={e => setNuevoEstudiante({...nuevoEstudiante, matricula: e.target.value})} icon={Hash} placeholder="ID" type="text" colorClass="blue"/>
+                  <InputField label="Contraseña" value={nuevoEstudiante.password} onChange={e => setNuevoEstudiante({...nuevoEstudiante, password: e.target.value})} icon={Lock} placeholder="Clave" type="text" colorClass="blue"/>
+                  <SelectField label="Unidad Académica" value={nuevoEstudiante.unidadAcademica} onChange={e => setNuevoEstudiante({...nuevoEstudiante, unidadAcademica: e.target.value})} options={UNIDADES_ACADEMICAS} colorClass="blue" />
+                  <button onClick={registrarUsuario} className="w-full py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:brightness-110 transition-all mt-6 border border-cyan-400/30">Registrar Alumno</button>
+                </div>
+              </div>
 
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">II. Objetivos y Actividad</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Objetivo principal" colorClass="rose" value={encuesta.objetivoPrincipal} onChange={e => setEncuesta({...encuesta, objetivoPrincipal: e.target.value})} placeholder="Bajar peso, ganar fuerza..."/>
-                   <InputField label="Nivel actividad física" colorClass="rose" value={encuesta.nivelActividad} onChange={e => setEncuesta({...encuesta, nivelActividad: e.target.value})} placeholder="Sedentario, activo..."/>
-                   <InputField label="Deporte en el pasado" colorClass="rose" value={encuesta.deportePasado} onChange={e => setEncuesta({...encuesta, deportePasado: e.target.value})} placeholder="Ej. Futbol, Natación..."/>
-                   <InputField label="Actividades atractivas" colorClass="rose" value={encuesta.actividadesAtractivas} onChange={e => setEncuesta({...encuesta, actividadesAtractivas: e.target.value})} placeholder="Ej. Correr, Yoga..."/>
-                 </div>
-               </div>
+              <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-emerald-500/30 backdrop-blur-2xl shadow-[0_0_50px_rgba(16,185,129,0.1)] h-fit relative overflow-hidden">
+                <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-emerald-500/20 blur-[50px] rounded-full"></div>
+                <h2 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10"><FileSpreadsheet size={18} /> Importar Excel</h2>
+                <div className="space-y-6 relative z-10">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase leading-relaxed tracking-tight">Carga masiva. Columnas requeridas: <span className="text-emerald-400">Nombre, Matricula, Password, Unidad Academica</span>.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button onClick={downloadTemplate} className="flex items-center justify-center gap-2 py-4 bg-[#1a1d2d] text-white border border-white/10 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-[#24293d] transition-all">
+                       <Download size={14} /> Plantilla
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest hover:brightness-110 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all border border-emerald-400/50">
+                       {isImporting ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />} {isImporting ? 'Subiendo...' : 'Subir Archivo'}
+                    </button>
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={uploadExcel} accept=".xlsx, .xls" className="hidden" />
+                </div>
+              </div>
+            </div>
 
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">III. Logística de Entrenamiento</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Tiempo disponible" colorClass="orange" value={encuesta.tiempoEntreno} onChange={e => setEncuesta({...encuesta, tiempoEntreno: e.target.value})} placeholder="Ej. 1 hr diaria..."/>
-                   <InputField label="Lugar de entreno" colorClass="orange" value={encuesta.lugarEntreno} onChange={e => setEncuesta({...encuesta, lugarEntreno: e.target.value})} placeholder="Casa, gimnasio..."/>
-                   <InputField label="Implementos en casa" colorClass="orange" value={encuesta.implementos} onChange={e => setEncuesta({...encuesta, implementos: e.target.value})} placeholder="Ej. Mancuernas, ligas..."/>
-                   <InputField label="Cardio y Fuerza" colorClass="orange" value={encuesta.incluyeCardioFuerza} onChange={e => setEncuesta({...encuesta, incluyeCardioFuerza: e.target.value})} placeholder="¿Te gustan ambos?"/>
-                   <InputField label="Mayor obstáculo" colorClass="orange" value={encuesta.obstaculoConstancia} onChange={e => setEncuesta({...encuesta, obstaculoConstancia: e.target.value})} placeholder="Falta de tiempo, pereza..."/>
-                 </div>
-               </div>
+            <div className="lg:col-span-7 bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] max-h-[850px] overflow-y-auto">
+              <h2 className="text-xs font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3"><Users size={18} /> Directorio Activo ({usuariosLista.length})</h2>
+              <div className="space-y-3">
+                {usuariosLista.length === 0 ? <p className="text-slate-500 text-center py-20 text-[10px] font-black uppercase italic tracking-widest">Sin alumnos registrados</p> : 
+                usuariosLista.map(u => (
+                  <div key={u.id} className="bg-[#1a1d2d]/50 p-5 rounded-2xl border border-white/5 flex justify-between items-center group transition-all hover:border-cyan-500/40 hover:bg-[#1a1d2d]">
+                    <div className="overflow-hidden pr-2">
+                        <p className="text-sm font-black text-white italic truncate">{String(u.nombre || 'Sin Nombre')}</p>
+                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter mt-1 truncate">{String(u.matricula)} • {String(u.unidadAcademica)}</p>
+                    </div>
+                    <div className="flex items-center gap-6 shrink-0">
+                        <div className="text-right hidden sm:block"><p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Clave</p><p className="text-cyan-400 font-black text-sm tracking-widest">{String(u.password)}</p></div>
+                        <div className="flex items-center gap-3">
+                           <button onClick={() => toggleSurveyAccess(u.matricula, u.surveyEnabled)} className={`w-10 h-5 rounded-full relative ${u.surveyEnabled ? 'bg-indigo-500' : 'bg-slate-800'}`}>
+                             <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${u.surveyEnabled ? 'right-1' : 'left-1'}`} />
+                           </button>
+                           
+                           <button onClick={() => {
+                               if (u.encuestaCompletada && u.datosEncuesta) {
+                                 setAdminSurveyView({ show: true, data: u.datosEncuesta, student: u });
+                               } else {
+                                 alert("Este estudiante aún no ha llenado su expediente clínico.");
+                               }
+                           }} className={`p-2 rounded-xl transition-all ${u.encuestaCompletada ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-slate-600 grayscale cursor-not-allowed hover:bg-white/5'}`} title="Ver Expediente Médico">
+                             <Stethoscope size={16}/>
+                           </button>
 
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">IV. Bienestar y Estilo de Vida</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Calidad de sueño" colorClass="cyan" value={encuesta.calidadSueno} onChange={e => setEncuesta({...encuesta, calidadSueno: e.target.value})} placeholder="Mala, buena, 8 hrs..."/>
-                   <InputField label="Nivel de energía" colorClass="cyan" value={encuesta.nivelEnergia} onChange={e => setEncuesta({...encuesta, nivelEnergia: e.target.value})} placeholder="Alto, bajo..."/>
-                   <InputField label="Tipo de motivación" colorClass="cyan" value={encuesta.tipoMotivacion} onChange={e => setEncuesta({...encuesta, tipoMotivacion: e.target.value})} placeholder="Salud, estética..."/>
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">V. Contacto Institucional</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Correo Institucional" icon={Mail} colorClass="emerald" value={encuesta.correoInstitucional} onChange={e => setEncuesta({...encuesta, correoInstitucional: e.target.value})} placeholder="alumno@alumno.buap.mx"/>
-                   <InputField label="Teléfono de contacto" icon={Phone} colorClass="emerald" value={encuesta.telefono} onChange={e => setEncuesta({...encuesta, telefono: e.target.value})} placeholder="222..."/>
-                   <InputField label="Horario de contacto" icon={Clock} colorClass="emerald" value={encuesta.horarioContacto} onChange={e => setEncuesta({...encuesta, horarioContacto: e.target.value})} placeholder="Mañana / Tarde"/>
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                 <button onClick={() => setShowSurvey(false)} className="w-full py-5 md:py-6 bg-[#1a1d2d] hover:bg-[#24293d] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
-                   <ArrowLeft size={20}/> Cerrar Encuesta
-                 </button>
-                 <button onClick={saveSurvey} className="w-full py-5 md:py-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(99,102,241,0.4)] hover:brightness-110 transition-all border border-indigo-400/50 flex items-center justify-center gap-3">
-                   <Save size={20}/> Enviar Expediente
-                 </button>
-               </div>
+                           <button onClick={() => triggerDelete(u.matricula, 'user', u.nombre)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
+                        </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* CONTENIDO PRINCIPAL DE PESTAÑAS (ADMIN/ALUMNO) */}
-      <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 flex-1 flex flex-col">
-        <header className="mb-12 flex flex-col lg:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-6">
-            <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-5 rounded-[2rem] shadow-[0_0_40px_rgba(6,182,212,0.4)] border border-cyan-400/30">
-               <Zap className="text-white fill-white" size={28} />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-md">Reto <span className="text-cyan-400">Actívate</span></h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-90 mt-2">DAES BUAP • {userData.nombre}</p>
-            </div>
+        {/* VISTA ADMIN - HISTORIAL */}
+        {userData.role === 'admin' && activeTab === 'historial' && (
+          <div className="bg-[#0f172a]/80 rounded-[3rem] border border-white/5 overflow-hidden animate-in fade-in backdrop-blur-xl shadow-2xl">
+             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-black/20">
+                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">Historial Global</h2>
+                <button onClick={exportarCSV} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.4)] border border-cyan-400/50"><Download size={16}/> Exportar CSV</button>
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[700px]">
+                  <thead className="bg-[#1a1d2d] text-[9px] font-black uppercase text-slate-400 tracking-widest"><tr><th className="px-8 py-5">Fase/Estudiante</th><th className="px-8 py-5 text-center">Composición Física</th><th className="px-8 py-5 text-center">R / S / I</th><th className="px-8 py-5 text-right">Control</th></tr></thead>
+                  <tbody className="divide-y divide-white/5">
+                    {historial.length === 0 ? <tr><td colSpan="4" className="py-20 text-center text-[10px] font-black text-slate-500 uppercase">Sin evaluaciones registradas</td></tr> :
+                    historial.map(h => (
+                      <tr key={h.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-8 py-5 text-sm font-black text-white">
+                            <span className="italic">{String(h.nombre || 'S/N')}</span>
+                            <br/>
+                            <span className="text-[9px] text-cyan-400 uppercase font-bold tracking-tight">{String(h.etapa)}</span> <span className="text-[9px] text-slate-500">• {String(h.fecha)}</span>
+                        </td>
+                        <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter text-slate-400">GC: <span className="text-pink-400">{h.grasaCorporal||'-'}</span> / GV: <span className="text-orange-400">{h.grasaVisceral||'-'}</span> / ME: <span className="text-cyan-400">{h.musculoEsqueletico||'-'}</span></td>
+                        <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter">R: <span className="text-emerald-400">{String(h.ruffierVal)}</span> / S: <span className="text-blue-400">{String(h.trenSuperior)}</span> / I: <span className="text-purple-400">{String(h.trenInferior)}</span></td>
+                        <td className="px-8 py-5 text-right">
+                            <button onClick={() => triggerDelete(h.id, 'evaluation', `${h.nombre} (${h.etapa})`)} className="p-3 text-slate-500 hover:text-red-500 transition-colors">
+                                <Trash2 size={16}/>
+                            </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+             </div>
           </div>
-          <nav className="flex bg-[#0f172a]/80 backdrop-blur-xl p-1.5 rounded-3xl border border-white/10 gap-1 shadow-2xl">
-            {userData.role === 'admin' ? (
-              <>
-                <button onClick={() => setActiveTab('usuarios')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'usuarios' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Usuarios</button>
-                <button onClick={() => setActiveTab('historial')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'historial' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Historial</button>
-                <button onClick={() => setActiveTab('contenidos')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'contenidos' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Videos</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setActiveTab('registro')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'registro' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Registro</button>
-                <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'biblioteca' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Contenido</button>
-                <button onClick={() => setActiveTab('evolución')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'evolución' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Evolución</button>
-              </>
-            )}
-            <button onClick={() => userData.role === 'student' && userData.surveyEnabled && setShowSurvey(true)} className={`p-3 rounded-xl transition-all ${userData?.surveyEnabled ? 'text-indigo-400 animate-pulse hover:bg-indigo-500/20' : 'text-slate-600 grayscale hidden'}`}><Stethoscope size={18} /></button>
-            <button onClick={handleLogout} className="p-3 text-red-400 ml-2 hover:bg-red-500/20 hover:text-red-300 rounded-xl transition-all"><LogOut size={18}/></button>
-          </nav>
-        </header>
+        )}
 
-        <main className="flex-1 w-full pb-20">
-          
-          {/* VISTA ADMIN - USUARIOS */}
-          {userData.role === 'admin' && activeTab === 'usuarios' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in">
-              <div className="lg:col-span-5 space-y-8">
-                <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] h-fit">
-                  <h2 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-8 flex items-center gap-3"><UserPlus size={18} /> Alta Estudiante</h2>
-                  <div className="space-y-4">
-                    <InputField label="Nombre" value={nuevoEstudiante.nombre} onChange={e => setNuevoEstudiante({...nuevoEstudiante, nombre: e.target.value})} icon={User} placeholder="Nombre completo" type="text" colorClass="blue"/>
-                    <InputField label="Matrícula" value={nuevoEstudiante.matricula} onChange={e => setNuevoEstudiante({...nuevoEstudiante, matricula: e.target.value})} icon={Hash} placeholder="ID" type="text" colorClass="blue"/>
-                    <InputField label="Contraseña" value={nuevoEstudiante.password} onChange={e => setNuevoEstudiante({...nuevoEstudiante, password: e.target.value})} icon={Lock} placeholder="Clave" type="text" colorClass="blue"/>
-                    <SelectField label="Unidad Académica" value={nuevoEstudiante.unidadAcademica} onChange={e => setNuevoEstudiante({...nuevoEstudiante, unidadAcademica: e.target.value})} options={UNIDADES_ACADEMICAS} colorClass="blue" />
-                    <button onClick={registrarUsuario} className="w-full py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:brightness-110 transition-all mt-6 border border-cyan-400/30">Registrar Alumno</button>
-                  </div>
-                </div>
+        {/* VISTA ADMIN - CONTENIDOS */}
+        {userData.role === 'admin' && activeTab === 'contenidos' && (
+          <div className="flex flex-col gap-6 animate-in fade-in">
+            <div className="bg-[#0f172a]/90 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+              <h2 className="text-xl font-black text-white uppercase italic tracking-tighter mb-8 flex items-center gap-3"><Video className="text-cyan-400" size={24}/> Bóveda Youtube</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                {MESES.map(m => (
+                  <div key={m} className="bg-[#131a2a]/60 p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
+                    <h4 className="text-[12px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3">{m}</h4>
+                    {CATEGORIAS_CONTENIDO.map(c => {
+                      const key = `${m}-${c}`;
+                      const isUn = configGlobal.desbloqueos?.[key];
+                      const videosList = getNormalizedVideos(configGlobal.videos, m, c);
 
-                <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-emerald-500/30 backdrop-blur-2xl shadow-[0_0_50px_rgba(16,185,129,0.1)] h-fit relative overflow-hidden">
-                  <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-emerald-500/20 blur-[50px] rounded-full"></div>
-                  <h2 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10"><FileSpreadsheet size={18} /> Importar Excel</h2>
-                  <div className="space-y-6 relative z-10">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase leading-relaxed tracking-tight">Carga masiva. Columnas requeridas: <span className="text-emerald-400">Nombre, Matricula, Password, Unidad Academica</span>.</p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button onClick={downloadTemplate} className="flex items-center justify-center gap-2 py-4 bg-[#1a1d2d] text-white border border-white/10 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-[#24293d] transition-all">
-                         <Download size={14} /> Plantilla
-                      </button>
-                      <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest hover:brightness-110 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all border border-emerald-400/50">
-                         {isImporting ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />} {isImporting ? 'Subiendo...' : 'Subir Archivo'}
-                      </button>
-                    </div>
-                    <input type="file" ref={fileInputRef} onChange={handleExcelUpload} accept=".xlsx, .xls" className="hidden" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-7 bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] max-h-[850px] overflow-y-auto">
-                <h2 className="text-xs font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3"><Users size={18} /> Directorio Activo ({usuariosLista.length})</h2>
-                <div className="space-y-3">
-                  {usuariosLista.length === 0 ? <p className="text-slate-500 text-center py-20 text-[10px] font-black uppercase italic tracking-widest">Sin alumnos registrados</p> : 
-                  usuariosLista.map(u => (
-                    <div key={u.id} className="bg-[#1a1d2d]/50 p-5 rounded-2xl border border-white/5 flex justify-between items-center group transition-all hover:border-cyan-500/40 hover:bg-[#1a1d2d]">
-                      <div>
-                          <p className="text-sm font-black text-white italic">{String(u.nombre || 'Sin Nombre')}</p>
-                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter mt-1">{String(u.matricula)} • {String(u.unidadAcademica)}</p>
-                      </div>
-                      <div className="flex items-center gap-6">
-                          <div className="text-right"><p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Clave</p><p className="text-cyan-400 font-black text-sm tracking-widest">{String(u.password)}</p></div>
-                          <div className="flex items-center gap-3">
-                             <button onClick={() => toggleSurveyAccess(u.matricula, u.surveyEnabled)} className={`w-10 h-5 rounded-full relative ${u.surveyEnabled ? 'bg-indigo-500' : 'bg-slate-800'}`}>
-                               <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${u.surveyEnabled ? 'right-1' : 'left-1'}`} />
-                             </button>
-                             
-                             <button onClick={() => {
-                                 if (u.encuestaCompletada && u.datosEncuesta) {
-                                   setAdminSurveyView({ show: true, data: u.datosEncuesta, student: u });
-                                 } else {
-                                   alert("Este estudiante aún no ha llenado su expediente clínico.");
-                                 }
-                             }} className={`p-2 rounded-xl transition-all ${u.encuestaCompletada ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-slate-600 grayscale cursor-not-allowed hover:bg-white/5'}`} title="Ver Expediente Médico">
-                               <Stethoscope size={16}/>
-                             </button>
-
-                             <button onClick={() => triggerDelete(u.matricula, 'user', u.nombre)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
+                      return (
+                        <div key={c} className="bg-[#0a0f1a] p-5 rounded-2xl border border-white/5">
+                          <div className="flex justify-between items-center mb-4">
+                            <span className="text-[10px] font-black uppercase text-white">{c}</span>
+                            <button onClick={() => toggleUnlock(m, c)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isUn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/50' : 'bg-[#1a2235] text-slate-400 border border-transparent'}`}>
+                              {isUn ? 'Abierto' : 'Cerrado'}
+                            </button>
                           </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VISTA ADMIN - HISTORIAL */}
-          {userData.role === 'admin' && activeTab === 'historial' && (
-            <div className="bg-[#0f172a]/80 rounded-[3rem] border border-white/5 overflow-hidden animate-in fade-in backdrop-blur-xl shadow-2xl">
-               <div className="p-8 border-b border-white/5 flex justify-between items-center bg-black/20">
-                  <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">Historial Global</h2>
-                  <button onClick={exportarCSV} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.4)] border border-cyan-400/50"><Download size={16}/> Exportar CSV</button>
-               </div>
-               <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-[#1a1d2d] text-[9px] font-black uppercase text-slate-400 tracking-widest"><tr><th className="px-8 py-5">Fase/Estudiante</th><th className="px-8 py-5 text-center">Composición Física</th><th className="px-8 py-5 text-center">R / S / I</th><th className="px-8 py-5 text-right">Control</th></tr></thead>
-                    <tbody className="divide-y divide-white/5">
-                      {historial.length === 0 ? <tr><td colSpan="4" className="py-20 text-center text-[10px] font-black text-slate-500 uppercase">Sin evaluaciones registradas</td></tr> :
-                      historial.map(h => (
-                        <tr key={h.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-8 py-5 text-sm font-black text-white">
-                              <span className="italic">{String(h.nombre || 'S/N')}</span>
-                              <br/>
-                              <span className="text-[9px] text-cyan-400 uppercase font-bold tracking-tight">{String(h.etapa)}</span> <span className="text-[9px] text-slate-500">• {String(h.fecha)}</span>
-                          </td>
-                          <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter text-slate-400">GC: <span className="text-pink-400">{h.grasaCorporal||'-'}</span> / GV: <span className="text-orange-400">{h.grasaVisceral||'-'}</span> / ME: <span className="text-cyan-400">{h.musculoEsqueletico||'-'}</span></td>
-                          <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter">R: <span className="text-emerald-400">{String(h.ruffierVal)}</span> / S: <span className="text-blue-400">{String(h.trenSuperior)}</span> / I: <span className="text-purple-400">{String(h.trenInferior)}</span></td>
-                          <td className="px-8 py-5 text-right">
-                              <button onClick={() => triggerDelete(h.id, 'evaluation', `${h.nombre} (${h.etapa})`)} className="p-3 text-slate-500 hover:text-red-500 transition-colors">
-                                  <Trash2 size={16}/>
-                              </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-               </div>
-            </div>
-          )}
-
-          {/* VISTA ADMIN - CONTENIDOS */}
-          {userData.role === 'admin' && activeTab === 'contenidos' && (
-            <div className="flex flex-col gap-6 animate-in fade-in">
-              <div className="bg-[#0f172a]/90 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter mb-8 flex items-center gap-3"><Video className="text-cyan-400" size={24}/> Bóveda Youtube</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {MESES.map(m => (
-                    <div key={m} className="bg-[#131a2a]/60 p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
-                      <h4 className="text-[12px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3">{m}</h4>
-                      {CATEGORIAS_CONTENIDO.map(c => {
-                        const key = `${m}-${c}`;
-                        const isUn = configGlobal.desbloqueos?.[key];
-                        const videosList = getNormalizedVideos(configGlobal.videos, m, c);
-
-                        return (
-                          <div key={c} className="bg-[#0a0f1a] p-5 rounded-2xl border border-white/5">
-                            <div className="flex justify-between items-center mb-4">
-                              <span className="text-[10px] font-black uppercase text-white">{c}</span>
-                              <button onClick={() => toggleUnlock(m, c)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isUn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/50' : 'bg-[#1a2235] text-slate-400 border border-transparent'}`}>
-                                {isUn ? 'Abierto' : 'Cerrado'}
-                              </button>
-                            </div>
-                            <div className="space-y-2 mb-4">
-                              {videosList.map((vidUrl, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-[#131620] p-3 rounded-xl border border-white/5 group">
-                                  <p className="text-[9px] text-slate-400 truncate w-40"><span className="text-cyan-400 font-bold mr-1">V{idx+1}:</span> {vidUrl}</p>
-                                  <button onClick={() => removeVideoLink(m, c, idx)} className="text-slate-600 hover:text-red-400 transition-colors"><X size={14}/></button>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex gap-2">
-                              <input type="text" placeholder="URL YouTube" value={videoInputs[key] || ""} onChange={e => setVideoInputs({...videoInputs, [key]: e.target.value})} className="w-full bg-[#131620] text-[10px] font-bold text-white px-4 py-3 rounded-xl outline-none border border-white/5 focus:border-cyan-500/50 transition-colors" />
-                              <button onClick={() => addVideoLink(m, c)} className="bg-cyan-600 text-white px-4 rounded-xl hover:bg-cyan-500 transition-colors shadow-lg"><PlusCircle size={16}/></button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VISTA ESTUDIANTE - BIBLIOTECA */}
-          {userData.role === 'student' && activeTab === 'biblioteca' && (
-            <div className="flex flex-col gap-6 animate-in fade-in pb-10">
-              <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 shadow-xl">
-                <h2 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-4 flex items-center gap-3"><Video className="text-cyan-400" size={28}/> Contenido Interactivo</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest mb-10">Visualiza todos los videos de cada categoría para desbloquear las medallas correspondientes en tu vitrina de evolución.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {MESES.map(m => (
-                    <div key={`vid-${m}`} className="bg-[#131620]/60 p-6 md:p-8 rounded-[2.5rem] border border-white/5 space-y-6 shadow-inner">
-                      <h4 className="text-[12px] md:text-sm font-black text-white uppercase tracking-[0.2em] italic border-b border-white/10 pb-3">{m}</h4>
-                      {CATEGORIAS_CONTENIDO.map(c => {
-                        const key = `${m}-${c}`;
-                        const isLocked = !configGlobal.desbloqueos?.[key];
-                        const videosList = getNormalizedVideos(configGlobal.videos, m, c);
-                        const isCatComplete = hasCompletedCategory(m, c);
-                        
-                        return (
-                          <div key={c} className={`p-5 md:p-6 rounded-[2rem] border flex flex-col gap-5 transition-all ${isLocked ? 'bg-[#0a0f1a] border-white/5 grayscale opacity-60' : isCatComplete ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-[#1e2336] border-white/10 shadow-lg'}`}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs font-black uppercase text-white flex items-center gap-2">
-                                {c === 'Nutrición' ? <Apple size={16} className="text-rose-400"/> : <Zap size={16} className="text-yellow-400"/>} {c}
-                              </span>
-                              {isCatComplete && <CheckCircle2 size={16} className="text-emerald-400"/>}
-                            </div>
-                            {isLocked ? (
-                              <div className="py-6 text-center text-slate-600 bg-black/30 rounded-xl"><Lock size={24} className="mx-auto mb-2"/><p className="text-[9px] font-black uppercase tracking-widest">Bloqueado</p></div>
-                            ) : videosList.length === 0 ? (
-                              <p className="text-[9px] text-center text-slate-500 py-4 uppercase font-black tracking-widest">Pronto...</p>
-                            ) : (
-                              <div className="flex flex-col gap-3">
-                                {videosList.map((vidUrl, idx) => {
-                                  const isSeen = userData.videosVistos?.includes(`${key}-${idx}`) || (idx === 0 && userData.videosVistos?.includes(key));
-                                  return (
-                                    <button key={idx} onClick={() => verVideo(m, c, idx, vidUrl)} className={`w-full py-4 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between border transition-all hover:-translate-y-0.5 ${isSeen ? 'bg-[#0f172a] text-emerald-400 border-emerald-500/30' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400/50 shadow-md'}`}>
-                                      <div className="flex items-center gap-3">
-                                        <PlayCircle size={16} className={isSeen ? "text-emerald-500" : ""}/> 
-                                        <span>Video {idx + 1}</span>
-                                      </div>
-                                      {isSeen ? <CheckCircle2 size={14}/> : <ChevronRight size={14} className="opacity-50"/>}
-                                    </button>
-                                  );
-                                })}
+                          <div className="space-y-2 mb-4">
+                            {videosList.map((vidUrl, idx) => (
+                              <div key={idx} className="flex justify-between items-center bg-[#131620] p-3 rounded-xl border border-white/5 group">
+                                <p className="text-[9px] text-slate-400 truncate w-32"><span className="text-cyan-400 font-bold mr-1">V{idx+1}:</span> {vidUrl}</p>
+                                <button onClick={() => removeVideoLink(m, c, idx)} className="text-slate-600 hover:text-red-400 transition-colors"><X size={14}/></button>
                               </div>
-                            )}
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="URL YouTube" value={videoInputs[key] || ""} onChange={e => setVideoInputs({...videoInputs, [key]: e.target.value})} className="w-full bg-[#131620] text-[10px] font-bold text-white px-4 py-3 rounded-xl outline-none border border-white/5 focus:border-cyan-500/50 transition-colors" />
+                            <button onClick={() => addVideoLink(m, c)} className="bg-cyan-600 text-white px-4 rounded-xl hover:bg-cyan-500 transition-colors shadow-lg"><PlusCircle size={16}/></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* VISTA ESTUDIANTE - REGISTRO */}
-          {userData.role === 'student' && activeTab === 'registro' && (
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 animate-in fade-in">
-              <div className="xl:col-span-7 space-y-8 pb-20">
-                <div className="bg-[#0f172a]/90 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-xl">
-                  <h3 className="text-lg font-black text-white uppercase italic mb-4 flex items-center gap-2 tracking-tighter"><Calendar className="text-blue-500" size={20}/> Fase a Reportar</h3>
-                  <div className="flex flex-wrap gap-2 md:gap-3">
-                    {mesesEtapas.map(m => {
-                      const isB = historial.some(h => h.etapa === m && h.matricula === userData.matricula);
-                      const isSelected = datosRegistro.etapa === m;
-                      let btnStyle = 'bg-[#131620] text-slate-400 hover:bg-[#24293d] border-2 border-white/5 hover:text-white';
-                      if (isSelected) btnStyle = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border-b-4 border-blue-700';
-                      else if (isB) btnStyle = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30';
+        {/* VISTA ESTUDIANTE - BIBLIOTECA E INFO DE BAREMOS */}
+        {userData.role === 'student' && activeTab === 'biblioteca' && (
+          <div className="flex flex-col gap-10 animate-in fade-in pb-10">
+            {/* Sección: Videos Educativos */}
+            <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 shadow-xl">
+              <h2 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-4 flex items-center gap-3"><Video className="text-cyan-400" size={28}/> Contenido Interactivo</h2>
+              <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest mb-10">Visualiza todos los videos de cada categoría para desbloquear las medallas correspondientes en tu vitrina de evolución.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                {MESES.map(m => (
+                  <div key={`vid-${m}`} className="bg-[#131620]/60 p-6 md:p-8 rounded-[2.5rem] border border-white/5 space-y-6 shadow-inner">
+                    <h4 className="text-[12px] md:text-sm font-black text-white uppercase tracking-[0.2em] italic border-b border-white/10 pb-3">{m}</h4>
+                    {CATEGORIAS_CONTENIDO.map(c => {
+                      const key = `${m}-${c}`;
+                      const isLocked = !configGlobal.desbloqueos?.[key];
+                      const videosList = getNormalizedVideos(configGlobal.videos, m, c);
+                      const isCatComplete = hasCompletedCategory(m, c);
                       
                       return (
-                        <button 
-                          key={m} 
-                          onClick={() => handlePhaseClick(m)} 
-                          className={`flex-1 min-w-[80px] md:min-w-[100px] py-4 rounded-xl text-[9px] md:text-[10px] font-black uppercase transition-all ${btnStyle}`}
+                        <div key={c} className={`p-5 md:p-6 rounded-[2rem] border flex flex-col gap-5 transition-all ${isLocked ? 'bg-[#0a0f1a] border-white/5 grayscale opacity-60' : isCatComplete ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-[#1e2336] border-white/10 shadow-lg'}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] md:text-xs font-black uppercase text-white flex items-center gap-2">
+                              {c === 'Nutrición' ? <Apple size={16} className="text-rose-400"/> : <Zap size={16} className="text-yellow-400"/>} {c}
+                            </span>
+                            {isCatComplete && <CheckCircle2 size={16} className="text-emerald-400"/>}
+                          </div>
+                          {isLocked ? (
+                            <div className="py-6 text-center text-slate-600 bg-black/30 rounded-xl"><Lock size={24} className="mx-auto mb-2"/><p className="text-[9px] font-black uppercase tracking-widest">Bloqueado</p></div>
+                          ) : videosList.length === 0 ? (
+                            <p className="text-[9px] text-center text-slate-500 py-4 uppercase font-black tracking-widest">Pronto...</p>
+                          ) : (
+                            <div className="flex flex-col gap-3">
+                              {videosList.map((vidUrl, idx) => {
+                                const isSeen = (userData.videosVistos||[]).includes(`${key}-${idx}`) || (idx === 0 && (userData.videosVistos||[]).includes(key));
+                                return (
+                                  <button key={idx} onClick={() => verVideo(m, c, idx, vidUrl)} className={`w-full py-4 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between border transition-all hover:-translate-y-0.5 ${isSeen ? 'bg-[#0f172a] text-emerald-400 border-emerald-500/30' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400/50 shadow-md'}`}>
+                                    <div className="flex items-center gap-3">
+                                      <PlayCircle size={16} className={isSeen ? "text-emerald-500" : ""}/> 
+                                      <span>Video {idx + 1}</span>
+                                    </div>
+                                    {isSeen ? <CheckCircle2 size={14}/> : <ChevronRight size={14} className="opacity-50"/>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SECCIÓN NUEVA: TABULACIONES Y BAREMOS CLÍNICOS */}
+            <div className="bg-gradient-to-br from-[#0f172a] to-[#131620] backdrop-blur-3xl p-8 md:p-10 rounded-[3rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+              <div className="absolute top-[-50px] right-[-50px] w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full pointer-events-none"></div>
+              <h2 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-4 flex items-center gap-3 relative z-10"><BarChart3 className="text-emerald-400" size={28}/> Parámetros de Evaluación</h2>
+              <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest mb-10 relative z-10">Haz clic en cada ícono para consultar las tablas (Baremos) mediante las cuales se calcula tu nivel físico y de salud.</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative z-10">
+                {[
+                  { key: 'imc', title: 'IMC', desc: 'Masa Corporal', icon: Weight, color: 'blue' },
+                  { key: 'icc', title: 'ICC', desc: 'Cintura-Cadera', icon: Ruler, color: 'pink' },
+                  { key: 'gc', title: 'Grasa', desc: 'Porcentaje Corporal', icon: Flame, color: 'rose' },
+                  { key: 'gv', title: 'Visceral', desc: 'Nivel Interno', icon: ShieldAlert, color: 'orange' },
+                  { key: 'me', title: 'Músculo', desc: 'Esquelético', icon: BicepsFlexed, color: 'cyan' },
+                  { key: 'ruf', title: 'Ruffier', desc: 'Test Cardiovascular', icon: Heart, color: 'emerald' },
+                  { key: 'sup', title: 'T. Superior', desc: 'Fuerza Reps', icon: Zap, color: 'purple' },
+                  { key: 'inf', title: 'T. Inferior', desc: 'Fuerza Reps', icon: TrendingUp, color: 'indigo' },
+                ].map((item, idx) => {
+                  const themes = {
+                    blue: { glow: "hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]", iconBg: "bg-gradient-to-br from-blue-400 to-indigo-600" },
+                    pink: { glow: "hover:shadow-[0_0_25px_rgba(236,72,153,0.3)]", iconBg: "bg-gradient-to-br from-pink-400 to-rose-600" },
+                    rose: { glow: "hover:shadow-[0_0_25px_rgba(225,29,72,0.3)]", iconBg: "bg-gradient-to-br from-rose-400 to-pink-600" },
+                    orange: { glow: "hover:shadow-[0_0_25px_rgba(249,115,22,0.3)]", iconBg: "bg-gradient-to-br from-orange-400 to-red-500" },
+                    cyan: { glow: "hover:shadow-[0_0_25px_rgba(6,182,212,0.3)]", iconBg: "bg-gradient-to-br from-cyan-300 to-blue-500" },
+                    emerald: { glow: "hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]", iconBg: "bg-gradient-to-br from-emerald-400 to-teal-600" },
+                    purple: { glow: "hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]", iconBg: "bg-gradient-to-br from-fuchsia-500 to-purple-600" },
+                    indigo: { glow: "hover:shadow-[0_0_25px_rgba(99,102,241,0.3)]", iconBg: "bg-gradient-to-br from-indigo-400 to-violet-600" }
+                  };
+                  const theme = themes[item.color];
+                  const IconCmp = item.icon;
+
+                  return (
+                    <button 
+                      key={idx}
+                      onClick={() => setBaremosModal({ show: true, key: item.key, title: `${item.title} - ${item.desc}`, colorClass: item.color, icon: item.icon })}
+                      className={`bg-[#1e2336] p-5 md:p-6 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center text-center transition-all duration-300 hover:-translate-y-2 ${theme.glow} hover:border-white/20 relative group overflow-hidden`}
+                    >
+                       <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-4 transition-transform duration-500 shadow-inner group-hover:scale-110 group-hover:rotate-6 ${theme.iconBg} border border-white/20 text-white`}>
+                         <IconCmp size={24} className="drop-shadow-md" />
+                       </div>
+                       <h5 className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white leading-tight mb-1">{item.title}</h5>
+                       <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-tighter text-slate-400">{item.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* VISTA ESTUDIANTE - REGISTRO */}
+        {userData.role === 'student' && activeTab === 'registro' && (
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 animate-in fade-in">
+            <div className="xl:col-span-7 space-y-8 pb-20">
+              <div className="bg-[#0f172a]/90 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-xl">
+                <h3 className="text-lg font-black text-white uppercase italic mb-4 flex items-center gap-2 tracking-tighter"><Calendar className="text-blue-500" size={20}/> Fase a Reportar</h3>
+                <div className="flex flex-wrap gap-2 md:gap-3">
+                  {["Inicial", ...MESES].map(m => {
+                    const isB = historial.some(h => h.etapa === m && h.matricula === userData.matricula);
+                    const isSelected = datosRegistro.etapa === m;
+                    let btnStyle = 'bg-[#131620] text-slate-400 hover:bg-[#24293d] border-2 border-white/5 hover:text-white';
+                    if (isSelected) btnStyle = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border-b-4 border-blue-700';
+                    else if (isB) btnStyle = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30';
+                    
+                    return (
+                      <button 
+                        key={m} 
+                        onClick={() => handlePhaseClick(m)} 
+                        className={`flex-1 min-w-[80px] md:min-w-[100px] py-4 rounded-xl text-[9px] md:text-[10px] font-black uppercase transition-all ${btnStyle}`}
+                      >
+                        {isB && !isSelected && <Eye size={12} className="inline mr-1"/>} 
+                        {!isB && !isSelected && <Calendar size={12} className="inline mr-1"/>} 
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-[#0f172a]/90 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl space-y-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-40 h-40 bg-yellow-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-cyan-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+
+                 {(() => {
+                   const isViewingMode = historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula);
+                   return (
+                     <>
+                       <div className="relative z-10 border-b border-[#24293d] pb-8">
+                         <h2 className="text-xs md:text-sm font-black text-indigo-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><User size={20}/> Perfil Biológico</h2>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                           <SelectField label="Sexo Biológico" value={datosRegistro.sexo} onChange={e => setDatosRegistro({...datosRegistro, sexo: e.target.value})} options={[{label: "Masculino", value: "M"}, {label: "Femenino", value: "F"}]} icon={User} colorClass="blue" disabled={isViewingMode} />
+                           <InputField label="Edad" value={datosRegistro.edad} onChange={e => setDatosRegistro({...datosRegistro, edad: e.target.value})} unit="años" type="number" icon={Calendar} colorClass="blue" disabled={isViewingMode} />
+                         </div>
+                       </div>
+                       
+                       <div className="relative z-10">
+                         <h2 className="text-xs md:text-sm font-black text-cyan-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Ruler size={20}/> Medidas Generales</h2>
+                         <div className="grid grid-cols-2 gap-4 md:gap-6">
+                           <InputField label="Peso Corporal" value={datosRegistro.peso} onChange={e => setDatosRegistro({...datosRegistro, peso: e.target.value})} unit="kg" colorClass="indigo" disabled={isViewingMode} />
+                           <InputField label="Estatura / Talla" value={datosRegistro.talla} onChange={e => setDatosRegistro({...datosRegistro, talla: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
+                           <InputField label="Cintura" value={datosRegistro.cintura} onChange={e => setDatosRegistro({...datosRegistro, cintura: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
+                           <InputField label="Cadera" value={datosRegistro.cadera} onChange={e => setDatosRegistro({...datosRegistro, cadera: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
+                         </div>
+                       </div>
+
+                       <div className="relative z-10">
+                         <h2 className="text-xs md:text-sm font-black text-rose-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Activity size={20}/> Composición Corporal</h2>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                           <InputField label="Grasa Corporal" value={datosRegistro.grasaCorporal} onChange={e => setDatosRegistro({...datosRegistro, grasaCorporal: e.target.value})} unit="%" colorClass="rose" icon={Flame} disabled={isViewingMode}/>
+                           <InputField label="Grasa Visceral" value={datosRegistro.grasaVisceral} onChange={e => setDatosRegistro({...datosRegistro, grasaVisceral: e.target.value})} unit="Lvl" colorClass="orange" icon={ShieldAlert} disabled={isViewingMode}/>
+                           <InputField label="Musc. Esquelético" value={datosRegistro.musculoEsqueletico} onChange={e => setDatosRegistro({...datosRegistro, musculoEsqueletico: e.target.value})} unit="%" colorClass="cyan" icon={BicepsFlexed} disabled={isViewingMode}/>
+                         </div>
+                       </div>
+
+                       <div className="relative z-10">
+                         <h2 className="text-xs md:text-sm font-black text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Heart size={20}/> Test Ruffier Dickson</h2>
+                         <div className="grid grid-cols-3 gap-3 md:gap-6">
+                           <InputField label="P0 (Reposo)" value={datosRegistro.p0} onChange={e => setDatosRegistro({...datosRegistro, p0: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
+                           <InputField label="P1 (Post)" value={datosRegistro.p1} onChange={e => setDatosRegistro({...datosRegistro, p1: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
+                           <InputField label="P2 (Recup)" value={datosRegistro.p2} onChange={e => setDatosRegistro({...datosRegistro, p2: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
+                         </div>
+                       </div>
+
+                       <div className="relative z-10">
+                         <h2 className="text-xs md:text-sm font-black text-purple-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Zap size={20}/> Potencia Muscular</h2>
+                         <div className="grid grid-cols-2 gap-4 md:gap-6">
+                           <InputField label="Tren Superior" value={datosRegistro.trenSuperior} onChange={e => setDatosRegistro({...datosRegistro, trenSuperior: e.target.value})} unit="reps" colorClass="purple" icon={Zap} disabled={isViewingMode}/>
+                           <InputField label="Tren Inferior" value={datosRegistro.trenInferior} onChange={e => setDatosRegistro({...datosRegistro, trenInferior: e.target.value})} unit="reps" colorClass="purple" icon={TrendingUp} disabled={isViewingMode}/>
+                         </div>
+                       </div>
+                     </>
+                   );
+                 })()}
+              </div>
+            </div>
+
+            {/* Panel de Interpretaciones Detallado */}
+            <div className="xl:col-span-5">
+              <div className="sticky top-8 space-y-6 bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-8 rounded-[3.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.6)] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 via-purple-500 to-emerald-500"></div>
+                <h2 className="text-xl md:text-2xl font-black text-white italic mb-8 flex items-center gap-3 tracking-tighter"><Eye className="text-cyan-400" /> Resultados Clínicos</h2>
+                
+                <div className="flex flex-col gap-4">
+                   <div className={`p-6 rounded-[2rem] border flex flex-col items-center justify-center relative overflow-hidden shadow-inner transition-all ${resultadosActuales.ruffierInterp.bg}`}>
+                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 relative z-10 drop-shadow-md">Test Ruffier Dickson</p>
+                      <span className="text-5xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg relative z-10 my-2">{String(resultadosActuales.ruffierVal ?? '--')}</span>
+                      <p className={`text-[12px] font-black uppercase tracking-widest relative z-10 drop-shadow-md ${resultadosActuales.ruffierInterp.color}`}>{String(resultadosActuales.ruffierInterp.label)}</p>
+                      <p className="mt-1 text-[10px] text-slate-300 italic font-bold relative z-10">{String(resultadosActuales.ruffierInterp.desc)}</p>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      {[
+                        { l: "Grasa Corporal", v: datosRegistro.grasaCorporal, u: "%", i: resultadosActuales.gcInterp },
+                        { l: "Grasa Visceral", v: datosRegistro.grasaVisceral, u: "Lvl", i: resultadosActuales.gvInterp },
+                        { l: "Músculo Esquelético", v: datosRegistro.musculoEsqueletico, u: "%", i: resultadosActuales.meInterp },
+                        { l: "Índice Masa Corp.", v: resultadosActuales.imc, u: "", i: resultadosActuales.imcInterp },
+                        { l: "Cintura-Cadera", v: resultadosActuales.icc, u: "", i: resultadosActuales.iccInterp },
+                        { l: "Tren Superior", v: datosRegistro.trenSuperior, u: "Reps", i: resultadosActuales.supInterp },
+                        { l: "Tren Inferior", v: datosRegistro.trenInferior, u: "Reps", i: resultadosActuales.infInterp }
+                      ].map((item, idx) => (
+                        <div key={idx} className={`p-4 md:p-5 rounded-3xl border flex flex-col items-center text-center shadow-inner transition-all ${item.i.bg} ${idx === 6 ? 'col-span-2 md:col-span-1' : ''}`}>
+                          <p className="text-[8px] md:text-[9px] font-black text-slate-300 uppercase mb-2 tracking-widest drop-shadow-md h-6 flex items-center">{item.l}</p>
+                          <p className="text-2xl font-black text-white">{String(item.v || '--')}<span className="text-xs opacity-50 ml-1">{item.u}</span></p>
+                          <p className={`text-[9px] md:text-[10px] font-black mt-2 uppercase tracking-widest drop-shadow-md ${item.i.color}`}>{String(item.i.label)}</p>
+                          <p className="text-[8px] text-slate-300 italic mt-1 font-bold truncate w-full px-1">{String(item.i.desc)}</p>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-[#24293d] space-y-6 relative z-10">
+                   {historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula) ? (
+                      <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-2xl border border-blue-500/30 shadow-inner relative z-10 w-full mt-6">
+                        <Eye size={18} className="text-blue-400 shrink-0" />
+                        <p className="text-[10px] font-black text-blue-400 uppercase leading-tight tracking-tighter">Estás viendo los datos de una fase completada. Estos registros son de solo lectura y no pueden modificarse.</p>
+                      </div>
+                   ) : (
+                     <div className="space-y-4">
+                       {regError && (
+                          <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl animate-in shake duration-300 shadow-inner">
+                            <AlertCircle className="text-orange-500 shrink-0" size={16} />
+                            <p className="text-[10px] font-black text-orange-500 uppercase leading-tight tracking-tight">{regError}</p>
+                          </div>
+                       )}
+                       <button onClick={finalizarRegistro} className="w-full py-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center justify-center gap-4 border border-cyan-400/50">
+                          <Save size={20}/> Guardar Fase Oficial
+                       </button>
+                     </div>
+                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA ESTUDIANTE - EVOLUCIÓN (VITRINA) */}
+        {userData.role === 'student' && activeTab === 'evolución' && evol && (
+          <div className="animate-in fade-in space-y-10 pb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 bg-gradient-to-r from-blue-600/20 to-transparent p-8 md:p-10 rounded-[3rem] border-l-8 border-blue-600 shadow-2xl backdrop-blur-xl h-fit relative overflow-hidden">
+                 <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+                 <h2 className="text-3xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-tight relative z-10">{String(userData.nombre || 'Mi Perfil')}</h2>
+                 <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest relative z-10">{String(userData.unidadAcademica)} • ID: {String(userData.matricula)}</p>
+              </div>
+              <div className="bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[3rem] border border-emerald-500/30 flex flex-col justify-center relative overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)] group transition-all hover:border-emerald-400/50">
+                 <div className="absolute top-0 right-0 p-6 text-emerald-500/10 group-hover:scale-110 transition-transform"><Trophy size={100}/></div>
+                 <span className="text-[10px] font-black text-emerald-400 uppercase mb-2 tracking-widest">Estado de Progreso</span>
+                 <h4 className="text-xl font-black text-white uppercase italic mb-2 tracking-tighter relative z-10">{String(evol?.hL?.area || 'Cargando')}</h4>
+                 <p className="text-xs text-slate-400 font-bold leading-relaxed italic relative z-10">{String(evol?.hL?.msg || 'Verificando datos...')}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+               <ProgressLineChart data={evol?.ruf} label="Test Ruffier Dickson" unit="pts" colorKey="emerald" />
+               <ProgressLineChart data={evol?.gc} label="Grasa Corporal" unit="%" colorKey="rose" />
+               <ProgressLineChart data={evol?.me} label="Músculo Esquelético" unit="%" colorKey="cyan" />
+               <ProgressLineChart data={evol?.sup} label="Tren Superior" unit="reps" colorKey="blue" />
+               <ProgressLineChart data={evol?.inf} label="Tren Inferior" unit="reps" colorKey="purple" />
+               <ProgressLineChart data={evol?.peso} label="Evolución de Peso" unit="kg" colorKey="indigo" />
+               <ProgressLineChart data={evol?.gv} label="Grasa Visceral" unit="Nivel" colorKey="orange" />
+            </div>
+
+            {/* SECCIÓN: VITRINA DE LOGROS */}
+            {(() => {
+              const recs = evol.recs || [];
+              const hasProgress = recs.length > 1; 
+              const ultimo = recs.length > 0 ? recs[recs.length - 1] : null;
+              const primero = recs.length > 0 ? recs[0] : null;
+
+              const estadosMedallas = [
+                hasProgress, 
+                recs.length >= 3, 
+                recs.length === 4, 
+                hasProgress && (parseFloat(ultimo.ruffierVal) < parseFloat(primero.ruffierVal)) && (parseFloat(ultimo.trenSuperior) > parseFloat(primero.trenSuperior)) && (parseFloat(ultimo.trenInferior) > parseFloat(primero.trenInferior)),
+                hasProgress && ultimo && parseFloat(ultimo.imc) >= 18.5 && parseFloat(ultimo.imc) < 25, 
+                hasProgress && ultimo && ((userData.sexo === 'M' && parseFloat(ultimo.icc) < 0.95) || (userData.sexo !== 'M' && parseFloat(ultimo.icc) < 0.80)), 
+                ultimo && parseFloat(ultimo.grasaVisceral) <= 9, 
+                hasProgress && (parseFloat(ultimo.cintura) < parseFloat(primero.cintura)),
+                hasProgress && ultimo.grasaCorporal && (parseFloat(ultimo.grasaCorporal) < parseFloat(primero.grasaCorporal)), 
+                ultimo && ultimo.musculoEsqueletico && ((userData.sexo === 'M' && parseFloat(ultimo.musculoEsqueletico) >= 33.3) || (userData.sexo !== 'M' && parseFloat(ultimo.musculoEsqueletico) >= 24.3)), 
+                hasProgress && (parseFloat(ultimo.ruffierVal) < parseFloat(primero.ruffierVal)), 
+                ultimo && parseFloat(ultimo.ruffierVal) <= 5,
+                hasProgress && (parseFloat(ultimo.trenSuperior) > parseFloat(primero.trenSuperior)), 
+                hasProgress && (parseFloat(ultimo.trenInferior) > parseFloat(primero.trenInferior)), 
+                ultimo && ((userData.sexo === 'M' && (parseFloat(ultimo.trenSuperior) >= 22 || parseFloat(ultimo.trenInferior) >= 43)) || (userData.sexo !== 'M' && (parseFloat(ultimo.trenSuperior) >= 15 || parseFloat(ultimo.trenInferior) >= 39))),
+                hasCompletedCategory("Mes 1", "Nutrición"), hasCompletedCategory("Mes 1", "Cultura Física"), 
+                hasCompletedCategory("Mes 2", "Nutrición"), hasCompletedCategory("Mes 2", "Cultura Física"), 
+                hasCompletedCategory("Mes 3", "Nutrición"), hasCompletedCategory("Mes 3", "Cultura Física")
+              ];
+
+              const totalMedallasBases = estadosMedallas.length;
+              const medallasObtenidas = estadosMedallas.filter(Boolean).length;
+              const medallasFaltantes = totalMedallasBases - medallasObtenidas;
+              const platinoDesbloqueado = medallasObtenidas === totalMedallasBases;
+              const porcentajeProgreso = (medallasObtenidas / totalMedallasBases) * 100;
+
+              return (
+                <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-10 rounded-[3rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden mt-6">
+                  <div className="absolute bottom-[-50px] left-[-50px] w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full pointer-events-none"></div>
+                  <h3 className="text-2xl md:text-3xl font-black text-white italic mb-2 flex items-center gap-3 md:gap-4 relative z-10 tracking-tighter"><Award className="text-cyan-400" size={32} /> Vitrina de Logros</h3>
+                  
+                  <div className="bg-[#131620]/80 p-5 rounded-3xl border border-white/5 mb-8 relative z-10 shadow-inner">
+                    <div className="flex justify-between items-end mb-3">
+                      <div>
+                        <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest">Progreso de Colección</p>
+                        <p className="text-xs md:text-sm font-black text-white mt-1">{medallasObtenidas} obtenidas <span className="text-slate-500 font-normal mx-2">|</span> <span className="text-cyan-400">{medallasFaltantes} por desbloquear</span></p>
+                      </div>
+                      <div className="text-right">
+                         <span className="text-3xl font-black text-white italic tracking-tighter">{Math.round(porcentajeProgreso)}<span className="text-lg text-cyan-400">%</span></span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-[#0f172a] h-3 rounded-full overflow-hidden border border-white/5">
+                       <div className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-out" style={{ width: `${porcentajeProgreso}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 relative z-10">
+                    {[
+                      { id: 1, c: estadosMedallas[0], n: "Primer Paso", d: "Mes 1 Completo", ic: ArrowUpRight, cl: "slate" },
+                      { id: 2, c: estadosMedallas[1], n: "Disciplina", d: "Mes 2 Completo", ic: Calendar, cl: "yellow" },
+                      { id: 3, c: estadosMedallas[2], n: "Constancia", d: "Reto Finalizado", ic: Star, cl: "orange" },
+                      { id: 4, c: estadosMedallas[3], n: "Atleta Integral", d: "Mejora 3 pruebas", ic: Trophy, cl: "orange" },
+                      { id: 5, c: estadosMedallas[4], n: "Equilibrio", d: "IMC Saludable", ic: Weight, cl: "cyan" },
+                      { id: 6, c: estadosMedallas[5], n: "Riesgo Cero", d: "ICC Bajo Riesgo", ic: ShieldCheck, cl: "pink" },
+                      { id: 7, c: estadosMedallas[6], n: "Escudo Interno", d: "Grasa Visc. Sana", ic: ShieldAlert, cl: "yellow" },
+                      { id: 8, c: estadosMedallas[7], n: "Core de Acero", d: "Reduce Cintura", ic: Ruler, cl: "lime" },
+                      { id: 9, c: estadosMedallas[8], n: "Definición", d: "Mejora Grasa Corp.", ic: Flame, cl: "rose" },
+                      { id: 10, c: estadosMedallas[9], n: "Hipertrofia", d: "Músculo Sano", ic: BicepsFlexed, cl: "blue" },
+                      { id: 11, c: estadosMedallas[10], n: "Motor Imparable", d: "Mejora Ruffier", ic: Heart, cl: "emerald" },
+                      { id: 12, c: estadosMedallas[11], n: "Cardio Élite", d: "Ruffier Excelente", ic: Activity, cl: "red" },
+                      { id: 13, c: estadosMedallas[12], n: "Fuerza Bruta", d: "Mejora Tren Sup.", ic: Zap, cl: "blue" },
+                      { id: 14, c: estadosMedallas[13], n: "Pot. Explosiva", d: "Mejora Tren Inf.", ic: TrendingUp, cl: "purple" },
+                      { id: 15, c: estadosMedallas[14], n: "Fuerza Élite", d: "Fuerza Excelente", ic: Award, cl: "indigo" },
+                      { id: 16, c: estadosMedallas[15], n: "Nutrición M1", d: "Experto Nutrición", ic: Apple, cl: "rose" },
+                      { id: 17, c: estadosMedallas[16], n: "Física M1", d: "Experto Físico", ic: Zap, cl: "yellow" },
+                      { id: 18, c: estadosMedallas[17], n: "Nutrición M2", d: "Experto Nutrición", ic: Apple, cl: "rose" },
+                      { id: 19, c: estadosMedallas[18], n: "Física M2", d: "Experto Físico", ic: Zap, cl: "yellow" },
+                      { id: 20, c: estadosMedallas[19], n: "Nutrición M3", d: "Experto Nutrición", ic: Apple, cl: "rose" },
+                      { id: 21, c: estadosMedallas[20], n: "Física M3", d: "Experto Físico", ic: Zap, cl: "yellow" },
+                      { id: 22, c: platinoDesbloqueado, n: "Platino Absoluto", d: "Colección Completa", ic: Crown, cl: "platinum", col: "col-span-2 md:col-span-3 lg:col-span-4 mt-4" }
+                    ].map((m, idx) => {
+                      const themes = {
+                        yellow: { text: "text-yellow-200", border: "border-yellow-500/50", glow: "shadow-[0_0_30px_rgba(234,179,8,0.4)]", iconBg: "bg-gradient-to-br from-yellow-400 to-orange-500" },
+                        emerald: { text: "text-emerald-200", border: "border-emerald-500/50", glow: "shadow-[0_0_30px_rgba(16,185,129,0.4)]", iconBg: "bg-gradient-to-br from-emerald-400 to-teal-600" },
+                        blue: { text: "text-blue-200", border: "border-blue-500/50", glow: "shadow-[0_0_30px_rgba(59,130,246,0.4)]", iconBg: "bg-gradient-to-br from-blue-400 to-indigo-600" },
+                        purple: { text: "text-purple-200", border: "border-purple-500/50", glow: "shadow-[0_0_30px_rgba(168,85,247,0.4)]", iconBg: "bg-gradient-to-br from-fuchsia-500 to-purple-600" },
+                        cyan: { text: "text-cyan-200", border: "border-cyan-500/50", glow: "shadow-[0_0_30px_rgba(6,182,212,0.4)]", iconBg: "bg-gradient-to-br from-cyan-300 to-blue-500" },
+                        pink: { text: "text-pink-200", border: "border-pink-500/50", glow: "shadow-[0_0_30px_rgba(236,72,153,0.4)]", iconBg: "bg-gradient-to-br from-pink-400 to-rose-600" },
+                        orange: { text: "text-orange-200", border: "border-orange-500/50", glow: "shadow-[0_0_30px_rgba(249,115,22,0.4)]", iconBg: "bg-gradient-to-br from-orange-400 to-red-500" },
+                        red: { text: "text-red-200", border: "border-red-500/50", glow: "shadow-[0_0_30px_rgba(239,68,68,0.4)]", iconBg: "bg-gradient-to-br from-red-500 to-rose-700" },
+                        slate: { text: "text-slate-200", border: "border-slate-500/50", glow: "shadow-[0_0_30px_rgba(148,163,184,0.4)]", iconBg: "bg-gradient-to-br from-slate-400 to-slate-600" },
+                        lime: { text: "text-lime-200", border: "border-lime-500/50", glow: "shadow-[0_0_30px_rgba(163,230,53,0.4)]", iconBg: "bg-gradient-to-br from-lime-400 to-green-600" },
+                        indigo: { text: "text-indigo-200", border: "border-indigo-500/50", glow: "shadow-[0_0_30px_rgba(99,102,241,0.4)]", iconBg: "bg-gradient-to-br from-indigo-400 to-violet-600" },
+                        rose: { text: "text-rose-200", border: "border-rose-500/50", glow: "shadow-[0_0_30px_rgba(225,29,72,0.4)]", iconBg: "bg-gradient-to-br from-rose-400 to-pink-600" },
+                        platinum: { text: "text-slate-800", border: "border-white/80", glow: "shadow-[0_0_40px_rgba(255,255,255,0.7)]", iconBg: "bg-gradient-to-br from-slate-100 via-white to-slate-300", cardBg: "bg-gradient-to-br from-slate-200 to-slate-400" }
+                      };
+                      const theme = themes[m.cl];
+                      const active = m.c;
+                      const IconComponent = m.ic;
+                      let containerClasses = `p-5 md:p-6 rounded-[2.5rem] border-[1px] flex flex-col items-center text-center transition-all duration-500 relative group cursor-pointer ${m.col || ''} `;
+                      if (active) {
+                         containerClasses += m.cl === 'platinum' ? theme.cardBg + " " : "bg-[#1e2336] ";
+                         containerClasses += theme.border + " " + theme.glow + " hover:scale-105 hover:-translate-y-2 z-10 hover:z-20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]";
+                      } else {
+                         containerClasses += "bg-[#0f172a]/40 border-white/5 opacity-60 grayscale-[0.8] hover:grayscale-[0.4] hover:opacity-100 shadow-none";
+                      }
+
+                      return (
+                        <div 
+                          key={m.id}
+                          onClick={() => setModalMedal({ show: true, title: m.n, desc: m.d, detail: "Medalla representativa.", icon: IconComponent, themeClass: theme.iconBg, colorClass: m.cl, active: active })}
+                          className={containerClasses}
+                          style={active ? { animationDelay: `${(idx*0.2).toFixed(1)}s`, animationName: 'floatMedal', animationDuration: '4s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-in-out' } : {}}
                         >
-                          {isB && !isSelected && <Eye size={12} className="inline mr-1"/>} 
-                          {!isB && !isSelected && <Calendar size={12} className="inline mr-1"/>} 
-                          {m}
-                        </button>
+                          {active && m.cl !== 'platinum' && <div className={`absolute top-[-30px] right-[-30px] w-24 h-24 blur-[35px] rounded-full opacity-40 ${theme.iconBg}`}></div>}
+                          
+                          <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-4 border relative z-10 transition-transform duration-500 shadow-inner
+                            ${active ? `${theme.iconBg} border-white/30 text-white shadow-lg scale-110 group-hover:scale-125 group-hover:rotate-12` : 'bg-[#131620] border-white/5 text-slate-500'}`}>
+                            {active ? <IconComponent size={24} className={`md:w-7 md:h-7 drop-shadow-md ${m.cl === 'platinum' ? 'text-slate-800' : 'text-white'}`} /> : <Lock size={20} className="md:w-6 md:h-6" />}
+                          </div>
+                          
+                          <h5 className={`text-[10px] md:text-[11px] font-black uppercase tracking-widest mb-1 md:mb-2 relative z-10 leading-tight 
+                            ${active ? (m.cl === 'platinum' ? 'text-slate-900 drop-shadow-sm' : 'text-white drop-shadow-md') : 'text-slate-500'}`}>{m.n}</h5>
+                          
+                          <p className={`text-[8px] md:text-[9px] font-bold uppercase tracking-tighter relative z-10 leading-tight px-1 
+                            ${active ? theme.text : 'text-slate-600'}`}>{m.d}</p>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
+              );
+            })()}
+          </div>
+        )}
 
-                <div className="bg-[#0f172a]/90 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl space-y-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-40 h-40 bg-yellow-500/10 blur-[60px] rounded-full pointer-events-none"></div>
-                   <div className="absolute bottom-0 left-0 w-40 h-40 bg-cyan-500/10 blur-[60px] rounded-full pointer-events-none"></div>
-
-                   {(() => {
-                     const isViewingMode = historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula);
-                     return (
-                       <>
-                         <div className="relative z-10 border-b border-[#24293d] pb-8">
-                           <h2 className="text-xs md:text-sm font-black text-indigo-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><User size={20}/> Perfil Biológico</h2>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                             <SelectField label="Sexo Biológico" value={datosRegistro.sexo} onChange={e => setDatosRegistro({...datosRegistro, sexo: e.target.value})} options={[{label: "Masculino", value: "M"}, {label: "Femenino", value: "F"}]} icon={User} colorClass="blue" disabled={isViewingMode} />
-                             <InputField label="Edad" value={datosRegistro.edad} onChange={e => setDatosRegistro({...datosRegistro, edad: e.target.value})} unit="años" type="number" icon={Calendar} colorClass="blue" disabled={isViewingMode} />
-                           </div>
-                         </div>
-                         
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-cyan-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Ruler size={20}/> Medidas Generales</h2>
-                           <div className="grid grid-cols-2 gap-4 md:gap-6">
-                             <InputField label="Peso Corporal" value={datosRegistro.peso} onChange={e => setDatosRegistro({...datosRegistro, peso: e.target.value})} unit="kg" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Estatura / Talla" value={datosRegistro.talla} onChange={e => setDatosRegistro({...datosRegistro, talla: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Cintura" value={datosRegistro.cintura} onChange={e => setDatosRegistro({...datosRegistro, cintura: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Cadera" value={datosRegistro.cadera} onChange={e => setDatosRegistro({...datosRegistro, cadera: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                           </div>
-                         </div>
-
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-rose-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Activity size={20}/> Composición Corporal</h2>
-                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                             <InputField label="Grasa Corporal" value={datosRegistro.grasaCorporal} onChange={e => setDatosRegistro({...datosRegistro, grasaCorporal: e.target.value})} unit="%" colorClass="rose" icon={Flame} disabled={isViewingMode}/>
-                             <InputField label="Grasa Visceral" value={datosRegistro.grasaVisceral} onChange={e => setDatosRegistro({...datosRegistro, grasaVisceral: e.target.value})} unit="Lvl" colorClass="orange" icon={ShieldAlert} disabled={isViewingMode}/>
-                             <InputField label="Musc. Esquelético" value={datosRegistro.musculoEsqueletico} onChange={e => setDatosRegistro({...datosRegistro, musculoEsqueletico: e.target.value})} unit="%" colorClass="cyan" icon={BicepsFlexed} disabled={isViewingMode}/>
-                           </div>
-                         </div>
-
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Heart size={20}/> Test Ruffier Dickson</h2>
-                           <div className="grid grid-cols-3 gap-3 md:gap-6">
-                             <InputField label="P0 (Reposo)" value={datosRegistro.p0} onChange={e => setDatosRegistro({...datosRegistro, p0: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                             <InputField label="P1 (Post)" value={datosRegistro.p1} onChange={e => setDatosRegistro({...datosRegistro, p1: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                             <InputField label="P2 (Recup)" value={datosRegistro.p2} onChange={e => setDatosRegistro({...datosRegistro, p2: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                           </div>
-                         </div>
-
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-purple-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Zap size={20}/> Potencia Muscular</h2>
-                           <div className="grid grid-cols-2 gap-4 md:gap-6">
-                             <InputField label="Tren Superior" value={datosRegistro.trenSuperior} onChange={e => setDatosRegistro({...datosRegistro, trenSuperior: e.target.value})} unit="reps" colorClass="purple" icon={Zap} disabled={isViewingMode}/>
-                             <InputField label="Tren Inferior" value={datosRegistro.trenInferior} onChange={e => setDatosRegistro({...datosRegistro, trenInferior: e.target.value})} unit="reps" colorClass="purple" icon={TrendingUp} disabled={isViewingMode}/>
-                           </div>
-                         </div>
-                       </>
-                     );
-                   })()}
-                </div>
-              </div>
-
-              {/* Panel de Interpretaciones Detallado */}
-              <div className="xl:col-span-5">
-                <div className="sticky top-8 space-y-6 bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-8 rounded-[3.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.6)] relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 via-purple-500 to-emerald-500"></div>
-                  <h2 className="text-xl md:text-2xl font-black text-white italic mb-8 flex items-center gap-3 tracking-tighter"><Eye className="text-cyan-400" /> Resultados Clínicos</h2>
-                  
-                  <div className="flex flex-col gap-4">
-                     <div className={`p-6 rounded-[2rem] border flex flex-col items-center justify-center relative overflow-hidden shadow-inner transition-all ${resultadosActuales.ruffierInterp.bg}`}>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 relative z-10 drop-shadow-md">Test Ruffier Dickson</p>
-                        <span className="text-5xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg relative z-10 my-2">{String(resultadosActuales.ruffierVal ?? '--')}</span>
-                        <p className={`text-[12px] font-black uppercase tracking-widest relative z-10 drop-shadow-md ${resultadosActuales.ruffierInterp.color}`}>{String(resultadosActuales.ruffierInterp.label)}</p>
-                        <p className="mt-1 text-[10px] text-slate-300 italic font-bold relative z-10">{String(resultadosActuales.ruffierInterp.desc)}</p>
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-4">
-                        {[
-                          { l: "Grasa Corporal", v: datosRegistro.grasaCorporal, u: "%", i: resultadosActuales.gcInterp },
-                          { l: "Grasa Visceral", v: datosRegistro.grasaVisceral, u: "Lvl", i: resultadosActuales.gvInterp },
-                          { l: "Músculo Esquelético", v: datosRegistro.musculoEsqueletico, u: "%", i: resultadosActuales.meInterp },
-                          { l: "Índice Masa Corp.", v: resultadosActuales.imc, u: "", i: resultadosActuales.imcInterp },
-                          { l: "Cintura-Cadera", v: resultadosActuales.icc, u: "", i: resultadosActuales.iccInterp },
-                          { l: "Tren Superior", v: datosRegistro.trenSuperior, u: "Reps", i: resultadosActuales.supInterp },
-                          { l: "Tren Inferior", v: datosRegistro.trenInferior, u: "Reps", i: resultadosActuales.infInterp }
-                        ].map((item, idx) => (
-                          <div key={idx} className={`p-4 md:p-5 rounded-3xl border flex flex-col items-center text-center shadow-inner transition-all ${item.i.bg} ${idx === 6 ? 'col-span-2 md:col-span-1' : ''}`}>
-                            <p className="text-[8px] md:text-[9px] font-black text-slate-300 uppercase mb-2 tracking-widest drop-shadow-md h-6 flex items-center">{item.l}</p>
-                            <p className="text-2xl font-black text-white">{String(item.v || '--')}<span className="text-xs opacity-50 ml-1">{item.u}</span></p>
-                            <p className={`text-[9px] md:text-[10px] font-black mt-2 uppercase tracking-widest drop-shadow-md ${item.i.color}`}>{String(item.i.label)}</p>
-                            <p className="text-[8px] text-slate-300 italic mt-1 font-bold truncate w-full px-1">{String(item.i.desc)}</p>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
-
-                  <div className="mt-8 pt-8 border-t border-[#24293d] space-y-6 relative z-10">
-                     {historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula) ? (
-                        <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-2xl border border-blue-500/30 shadow-inner relative z-10 w-full mt-6">
-                          <Eye size={18} className="text-blue-400 shrink-0" />
-                          <p className="text-[10px] font-black text-blue-400 uppercase leading-tight tracking-tighter">Estás viendo los datos de una fase completada. Estos registros son de solo lectura y no pueden modificarse.</p>
-                        </div>
-                     ) : (
-                       <div className="space-y-4">
-                         {regError && (
-                            <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl animate-in shake duration-300 shadow-inner">
-                              <AlertCircle className="text-orange-500 shrink-0" size={16} />
-                              <p className="text-[10px] font-black text-orange-500 uppercase leading-tight tracking-tight">{regError}</p>
-                            </div>
-                         )}
-                         <button onClick={finalizarRegistro} className="w-full py-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center justify-center gap-4 border border-cyan-400/50">
-                            <Save size={20}/> Guardar Fase Oficial
-                         </button>
-                       </div>
-                     )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VISTA ESTUDIANTE - EVOLUCIÓN (VITRINA) */}
-          {userData.role === 'student' && activeTab === 'evolución' && (
-            <div className="animate-in fade-in space-y-10 pb-20">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-gradient-to-r from-blue-600/20 to-transparent p-8 md:p-10 rounded-[3rem] border-l-8 border-blue-600 shadow-2xl backdrop-blur-xl h-fit relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[50px] rounded-full pointer-events-none"></div>
-                   <h2 className="text-3xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-tight relative z-10">{String(userData.nombre || 'Mi Perfil')}</h2>
-                   <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest relative z-10">{String(userData.unidadAcademica)} • ID: {String(userData.matricula)}</p>
-                </div>
-                <div className="bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[3rem] border border-emerald-500/30 flex flex-col justify-center relative overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)] group transition-all hover:border-emerald-400/50">
-                   <div className="absolute top-0 right-0 p-6 text-emerald-500/10 group-hover:scale-110 transition-transform"><Trophy size={100}/></div>
-                   <span className="text-[10px] font-black text-emerald-400 uppercase mb-2 tracking-widest">Estado de Progreso</span>
-                   <h4 className="text-xl font-black text-white uppercase italic mb-2 tracking-tighter relative z-10">{String(evolUser?.highlight?.area || 'Cargando')}</h4>
-                   <p className="text-xs text-slate-400 font-bold leading-relaxed italic relative z-10">{String(evolUser?.highlight?.msg || 'Verificando datos...')}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-                 <ProgressLineChart data={evolUser?.ruffier} label="Test Ruffier Dickson" unit="pts" colorKey="emerald" />
-                 <ProgressLineChart data={evolUser?.grasaCorporal} label="Grasa Corporal" unit="%" colorKey="rose" />
-                 <ProgressLineChart data={evolUser?.musculoEsqueletico} label="Músculo Esquelético" unit="%" colorKey="cyan" />
-                 <ProgressLineChart data={evolUser?.superior} label="Tren Superior" unit="reps" colorKey="blue" />
-                 <ProgressLineChart data={evolUser?.inferior} label="Tren Inferior" unit="reps" colorKey="purple" />
-                 <ProgressLineChart data={evolUser?.peso} label="Evolución de Peso" unit="kg" colorKey="indigo" />
-                 <ProgressLineChart data={evolUser?.grasaVisceral} label="Grasa Visceral" unit="Nivel" colorKey="orange" />
-              </div>
-
-              {/* SECCIÓN: VITRINA DE LOGROS */}
-              {(() => {
-                const sorted = historial.filter(h => h.matricula === userData.matricula).sort((a, b) => mesesEtapas.indexOf(a.etapa) - mesesEtapas.indexOf(b.etapa));
-                const hasProgress = sorted.length > 1; 
-                const ultimo = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-
-                const primerPaso = hasProgress;
-                const isConstante = sorted.length >= 3;
-                const retoCompletado = sorted.length === 4;
-
-                const mejoroCardio = hasProgress && parseFloat(ultimo.ruffierVal) < parseFloat(sorted[0].ruffierVal);
-                const mejoroSup = hasProgress && parseFloat(ultimo.trenSuperior) > parseFloat(sorted[0].trenSuperior);
-                const mejoroInf = hasProgress && parseFloat(ultimo.trenInferior) > parseFloat(sorted[0].trenInferior);
-                const mejoroCore = hasProgress && parseFloat(ultimo.cintura) < parseFloat(sorted[0].cintura);
-                
-                const mejoroGrasaCorp = hasProgress && ultimo.grasaCorporal && parseFloat(ultimo.grasaCorporal) < parseFloat(sorted[0].grasaCorporal);
-                const hipertrofia = ultimo && ultimo.musculoEsqueletico && (
-                   (userData.sexo === 'M' && parseFloat(ultimo.musculoEsqueletico) >= 33.3) ||
-                   (userData.sexo !== 'M' && parseFloat(ultimo.musculoEsqueletico) >= 24.3)
-                );
-                const escudoInterno = ultimo && ultimo.grasaVisceral && parseFloat(ultimo.grasaVisceral) <= 9;
-                
-                const atletaIntegral = mejoroCardio && mejoroSup && mejoroInf;
-                
-                const imcSaludable = hasProgress && ultimo && parseFloat(ultimo.imc) >= 18.5 && parseFloat(ultimo.imc) < 25;
-                const iccSaludable = hasProgress && ultimo && (
-                  (userData.sexo === 'M' && parseFloat(ultimo.icc) < 0.95) || 
-                  (userData.sexo !== 'M' && parseFloat(ultimo.icc) < 0.80)
-                );
-                const corazonAtleta = hasProgress && ultimo && parseFloat(ultimo.ruffierVal) <= 5;
-                const fuerzaElite = hasProgress && ultimo && (
-                  (userData.sexo === 'M' && (parseFloat(ultimo.trenSuperior) >= 22 || parseFloat(ultimo.trenInferior) >= 43)) ||
-                  (userData.sexo !== 'M' && (parseFloat(ultimo.trenSuperior) >= 15 || parseFloat(ultimo.trenInferior) >= 39))
-                );
-
-                const nutM1 = hasCompletedCategory("Mes 1", "Nutrición");
-                const cfM1 = hasCompletedCategory("Mes 1", "Cultura Física");
-                const nutM2 = hasCompletedCategory("Mes 2", "Nutrición");
-                const cfM2 = hasCompletedCategory("Mes 2", "Cultura Física");
-                const nutM3 = hasCompletedCategory("Mes 3", "Nutrición");
-                const cfM3 = hasCompletedCategory("Mes 3", "Cultura Física");
-
-                // Cálculo de Progreso
-                const estadosMedallas = [
-                  primerPaso, isConstante, retoCompletado, atletaIntegral,
-                  imcSaludable, iccSaludable, escudoInterno, mejoroCore,
-                  mejoroGrasaCorp, hipertrofia, mejoroCardio, corazonAtleta,
-                  mejoroSup, mejoroInf, fuerzaElite,
-                  nutM1, cfM1, nutM2, cfM2, nutM3, cfM3
-                ];
-                const totalMedallasBases = estadosMedallas.length;
-                const medallasObtenidas = estadosMedallas.filter(Boolean).length;
-                const medallasFaltantes = totalMedallasBases - medallasObtenidas;
-                const platinoDesbloqueado = medallasObtenidas === totalMedallasBases;
-                const porcentajeProgreso = (medallasObtenidas / totalMedallasBases) * 100;
-
-                const renderBadge = (active, title, desc, detail, IconComponent, colorClass, animationDelayIdx = 0) => {
-                  const themes = {
-                    yellow: { text: "text-yellow-200", border: "border-yellow-500/50", glow: "shadow-[0_0_30px_rgba(234,179,8,0.4)]", iconBg: "bg-gradient-to-br from-yellow-400 to-orange-500" },
-                    emerald: { text: "text-emerald-200", border: "border-emerald-500/50", glow: "shadow-[0_0_30px_rgba(16,185,129,0.4)]", iconBg: "bg-gradient-to-br from-emerald-400 to-teal-600" },
-                    blue: { text: "text-blue-200", border: "border-blue-500/50", glow: "shadow-[0_0_30px_rgba(59,130,246,0.4)]", iconBg: "bg-gradient-to-br from-blue-400 to-indigo-600" },
-                    purple: { text: "text-purple-200", border: "border-purple-500/50", glow: "shadow-[0_0_30px_rgba(168,85,247,0.4)]", iconBg: "bg-gradient-to-br from-fuchsia-500 to-purple-600" },
-                    cyan: { text: "text-cyan-200", border: "border-cyan-500/50", glow: "shadow-[0_0_30px_rgba(6,182,212,0.4)]", iconBg: "bg-gradient-to-br from-cyan-300 to-blue-500" },
-                    pink: { text: "text-pink-200", border: "border-pink-500/50", glow: "shadow-[0_0_30px_rgba(236,72,153,0.4)]", iconBg: "bg-gradient-to-br from-pink-400 to-rose-600" },
-                    orange: { text: "text-orange-200", border: "border-orange-500/50", glow: "shadow-[0_0_30px_rgba(249,115,22,0.4)]", iconBg: "bg-gradient-to-br from-orange-400 to-red-500" },
-                    red: { text: "text-red-200", border: "border-red-500/50", glow: "shadow-[0_0_30px_rgba(239,68,68,0.4)]", iconBg: "bg-gradient-to-br from-red-500 to-rose-700" },
-                    slate: { text: "text-slate-200", border: "border-slate-500/50", glow: "shadow-[0_0_30px_rgba(148,163,184,0.4)]", iconBg: "bg-gradient-to-br from-slate-400 to-slate-600" },
-                    lime: { text: "text-lime-200", border: "border-lime-500/50", glow: "shadow-[0_0_30px_rgba(163,230,53,0.4)]", iconBg: "bg-gradient-to-br from-lime-400 to-green-600" },
-                    indigo: { text: "text-indigo-200", border: "border-indigo-500/50", glow: "shadow-[0_0_30px_rgba(99,102,241,0.4)]", iconBg: "bg-gradient-to-br from-indigo-400 to-violet-600" },
-                    rose: { text: "text-rose-200", border: "border-rose-500/50", glow: "shadow-[0_0_30px_rgba(225,29,72,0.4)]", iconBg: "bg-gradient-to-br from-rose-400 to-pink-600" },
-                    platinum: { text: "text-slate-800", border: "border-white/80", glow: "shadow-[0_0_40px_rgba(255,255,255,0.7)]", iconBg: "bg-gradient-to-br from-slate-100 via-white to-slate-300", cardBg: "bg-gradient-to-br from-slate-200 to-slate-400" }
-                  };
-                  
-                  const theme = themes[colorClass] || themes.blue;
-                  const delay = (animationDelayIdx * 0.2).toFixed(1);
-
-                  return (
-                    <div 
-                      onClick={() => setMedalModal({ show: true, title, desc, detail, icon: IconComponent, themeClass: theme.iconBg, colorClass, active })}
-                      className={`p-5 md:p-6 rounded-[2.5rem] border-[1px] flex flex-col items-center text-center transition-all duration-500 relative group cursor-pointer
-                      ${active 
-                        ? `${colorClass === 'platinum' ? theme.cardBg : 'bg-[#1e2336]'} ${theme.border} ${theme.glow} hover:scale-105 hover:-translate-y-2 z-10 hover:z-20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]` 
-                        : 'bg-[#0f172a]/40 border-white/5 opacity-60 grayscale-[0.8] hover:grayscale-[0.4] hover:opacity-100 shadow-none'}`}
-                      style={active ? { animationDelay: `${delay}s`, animationName: 'floatMedal', animationDuration: '4s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-in-out' } : {}}
-                    >
-                      {active && (
-                        <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:animate-[shimmer_1.5s_ease-in-out]"></div>
-                        </div>
-                      )}
-
-                      {active && colorClass !== 'platinum' && <div className={`absolute top-[-30px] right-[-30px] w-24 h-24 blur-[35px] rounded-full opacity-40 ${theme.iconBg}`}></div>}
-                      
-                      <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-4 border relative z-10 transition-transform duration-500 shadow-inner
-                        ${active ? `${theme.iconBg} border-white/30 text-white shadow-lg scale-110 group-hover:scale-125 group-hover:rotate-12` : 'bg-[#131620] border-white/5 text-slate-500'}`}>
-                        {active ? <IconComponent size={24} className={`md:w-7 md:h-7 drop-shadow-md ${colorClass === 'platinum' ? 'text-slate-800' : 'text-white'}`} /> : <Lock size={20} className="md:w-6 md:h-6" />}
-                      </div>
-                      
-                      <h5 className={`text-[10px] md:text-[11px] font-black uppercase tracking-widest mb-1 md:mb-2 relative z-10 leading-tight 
-                        ${active ? (colorClass === 'platinum' ? 'text-slate-900 drop-shadow-sm' : 'text-white drop-shadow-md') : 'text-slate-500'}`}>{title}</h5>
-                      
-                      <p className={`text-[8px] md:text-[9px] font-bold uppercase tracking-tighter relative z-10 leading-tight px-1 
-                        ${active ? theme.text : 'text-slate-600'}`}>{desc}</p>
-                    </div>
-                  );
-                };
-
-                return (
-                  <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-10 rounded-[3rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden mt-6">
-                    <div className="absolute bottom-[-50px] left-[-50px] w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full pointer-events-none"></div>
-                    <h3 className="text-2xl md:text-3xl font-black text-white italic mb-2 flex items-center gap-3 md:gap-4 relative z-10 tracking-tighter"><Award className="text-cyan-400" size={32} /> Vitrina de Logros</h3>
-                    
-                    {/* BARRA DE PROGRESO */}
-                    <div className="bg-[#131620]/80 p-5 rounded-3xl border border-white/5 mb-8 relative z-10 shadow-inner">
-                      <div className="flex justify-between items-end mb-3">
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest">Progreso de Colección</p>
-                          <p className="text-xs md:text-sm font-black text-white mt-1">{medallasObtenidas} obtenidas <span className="text-slate-500 font-normal mx-2">|</span> <span className="text-cyan-400">{medallasFaltantes} por desbloquear</span></p>
-                        </div>
-                        <div className="text-right">
-                           <span className="text-3xl font-black text-white italic tracking-tighter">{Math.round(porcentajeProgreso)}<span className="text-lg text-cyan-400">%</span></span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-[#0f172a] h-3 rounded-full overflow-hidden border border-white/5">
-                         <div className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-out" style={{ width: `${porcentajeProgreso}%` }}></div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 relative z-10">
-                      {/* Fila 1: Disciplina */}
-                      {renderBadge(primerPaso, "Primer Paso", "Mes 1 Completo", "Completaste exitosamente todas las pruebas de tu primera evaluación física.", ArrowUpRight, "slate", 1)}
-                      {renderBadge(isConstante, "Disciplina", "Mes 2 Completo", "Registraste tus datos en dos fases seguidas, demostrando constancia en tu proceso.", Calendar, "yellow", 2)}
-                      {renderBadge(retoCompletado, "Constancia", "Reto Finalizado", "Llegaste a la meta final. Has completado las 3 fases del reto físico de la DAES.", Star, "orange", 3)}
-                      {renderBadge(atletaIntegral, "Atleta Integral", "Mejora en 3 pruebas", "Mejoraste simultáneamente en tus capacidades de Cardio, Tren Superior y Tren Inferior.", Trophy, "orange", 4)}
-                      
-                      {/* Fila 2: Composición Corporal */}
-                      {renderBadge(imcSaludable, "Equilibrio", "IMC Saludable", "Lograste o mantuviste tu Índice de Masa Corporal dentro del rango saludable (18.5 - 24.9).", Weight, "cyan", 5)}
-                      {renderBadge(iccSaludable, "Riesgo Cero", "ICC Bajo Riesgo", "Tu Índice Cintura-Cadera indica un riesgo cardiovascular bajo y saludable.", ShieldCheck, "pink", 6)}
-                      {renderBadge(escudoInterno, "Escudo Interno", "Grasa Visceral Sana", "Mantuviste tu nivel de Grasa Visceral en parámetros seguros (Nivel 1-9).", ShieldAlert, "yellow", 7)}
-                      {renderBadge(mejoroCore, "Core de Acero", "Reducción de Cintura", "Lograste reducir el perímetro de tu cintura en comparación con tus registros anteriores.", Ruler, "lime", 8)}
-                      
-                      {/* Fila 3: Grasa y Músculo */}
-                      {renderBadge(mejoroGrasaCorp, "Definición", "Mejoró Grasa Corp.", "Redujiste tu porcentaje de Grasa Corporal acercándote a un rango más saludable.", Flame, "rose", 9)}
-                      {renderBadge(hipertrofia, "Hipertrofia", "Músculo en Nivel Sano", "Alcanzaste un nivel óptimo o atlético en tu porcentaje de Músculo Esquelético.", BicepsFlexed, "blue", 10)}
-                      {renderBadge(mejoroCardio, "Motor Imparable", "Mejora Test Ruffier", "Mejoraste tu capacidad cardiovascular reduciendo tu puntaje en la prueba de Ruffier.", Heart, "emerald", 11)}
-                      {renderBadge(corazonAtleta, "Cardio Élite", "Ruffier Óptimo/Excelente", "Alcanzaste un nivel Bueno o Excelente en tu test Ruffier Dickson.", Activity, "red", 12)}
-
-                      {/* Fila 4: Rendimiento Físico y Platino */}
-                      {renderBadge(mejoroSup, "Fuerza Bruta", "Mejora Tren Superior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Superior.", Zap, "blue", 13)}
-                      {renderBadge(mejoroInf, "Pot. Explosiva", "Mejora Tren Inferior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Inferior.", TrendingUp, "purple", 14)}
-                      {renderBadge(fuerzaElite, "Fuerza Élite", "Fuerza Óptima/Excelente", "Demostraste una condición destacada obteniendo nivel Bueno o Excelente en las pruebas de fuerza.", Award, "indigo", 15)}
-                      
-                      {renderBadge(nutM1, "Nutrición M1", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 1.", Apple, "rose", 16)}
-                      {renderBadge(cfM1, "Física M1", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 1.", Zap, "yellow", 17)}
-                      {renderBadge(nutM2, "Nutrición M2", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 2.", Apple, "rose", 18)}
-                      {renderBadge(cfM2, "Física M2", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 2.", Zap, "yellow", 19)}
-                      {renderBadge(nutM3, "Nutrición M3", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 3.", Apple, "rose", 20)}
-                      {renderBadge(cfM3, "Física M3", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 3.", Zap, "yellow", 21)}
-
-                      <div className="col-span-2 md:col-span-3 lg:col-span-4 mt-4">
-                         {renderBadge(platinoDesbloqueado, "Platino Absoluto", "Colección Completa", "¡El máximo honor del Reto Actívate! Desbloqueaste todas las medallas posibles demostrando una disciplina inquebrantable a lo largo de las fases.", Crown, "platinum", 22)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-        </main>
-      </div>
+      </main>
     </div>
   );
 };
