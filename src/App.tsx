@@ -1,1641 +1,992 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  User, Activity, Ruler, Weight, ClipboardCheck, Trash2, Save, Download, 
-  TrendingUp, Heart, AlertCircle, Zap, Award, BarChart3, Hash, Calendar, 
-  ArrowUpRight, Info, Lock, School, Sparkles, Loader2, X, Stethoscope, 
-  Trophy, Star, LogOut, LogIn, UserPlus, Users, Eye, Key, AlertTriangle, FileUp, FileSpreadsheet, ShieldCheck,
-  Flame, BicepsFlexed, ShieldAlert, Crown, PlayCircle, CheckCircle2, Apple, Video, ChevronRight, PlusCircle,
-  Mail, Phone, Clock, ArrowLeft, FileText
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { 
+  User, Lock, Eye, EyeOff, Shield, Users, LineChart as ChartIcon, Image, LogOut, 
+  UserCheck, Download, Upload, ClipboardList, PlayCircle, PieChart, Activity, 
+  Stethoscope, CheckCircle, AlertCircle, Trash2, ExternalLink, Youtube, Link2, 
+  Award, Star, HeartPulse, Dumbbell, BookOpen, Crown, Info
 } from 'lucide-react';
 
-// Firebase Imports
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
-} from 'firebase/auth';
-import { 
-  getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, deleteDoc, updateDoc, arrayUnion
-} from 'firebase/firestore';
+type Role = 'admin' | 'student';
 
-// --- CONFIGURACIÓN FIREBASE HÍBRIDA ---
-let firebaseConfig;
-try {
-  firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-  if (!firebaseConfig.apiKey) throw new Error("Fallback a configuración manual");
-} catch (e) {
-  firebaseConfig = {
-    apiKey: "AIzaSyBi8Iw_DDqiW6duwgJEbIjIl2QiEjWhoFE",
-    authDomain: "reto-activate-dd3cb.firebaseapp.com",
-    projectId: "reto-activate-dd3cb",
-    storageBucket: "reto-activate-dd3cb.firebasestorage.app",
-    messagingSenderId: "230551697596",
-    appId: "1:230551697596:web:6fc8a801f9445e74ea78b9",
-    measurementId: "G-7HXE5F4TZC"
+interface Usuario {
+  id: string;
+  name: string;
+  password?: string;
+  unidad?: string;
+  role: Role;
+}
+
+interface Evaluacion {
+  _fecha: string;
+  sexo: string;
+  edad: string;
+  peso: string;
+  talla: string;
+  cintura: string;
+  cadera: string;
+  grasa: string;
+  visceral: string;
+  musculo: string;
+  p0: string;
+  p1: string;
+  p2: string;
+  trensup: string;
+  treninf: string;
+}
+
+interface ContentItem {
+  id: string;
+  titulo: string;
+  url: string;
+  estado: 'activo' | 'oculto';
+}
+
+const DEFAULT_DB = {
+  users: [
+    { id: "ADMIN", password: "RETO2024", role: "admin", name: "Administrador del Sistema" } as Usuario
+  ],
+  settings: {
+    surveyEnabled: false
+  },
+  content: {
+    mes1: { cultura_fisica: [] as ContentItem[], nutricion: [] as ContentItem[] },
+    mes2: { cultura_fisica: [] as ContentItem[], nutricion: [] as ContentItem[] },
+    mes3: { cultura_fisica: [] as ContentItem[], nutricion: [] as ContentItem[] }
+  },
+  evaluations: {} as Record<string, Record<string, Evaluacion>>,
+  surveys: {} as Record<string, any>
+};
+
+const num = (val: string | number) => parseFloat(val as string) || 0;
+
+function clasificarIMC(peso: number, tallaCm: number) {
+  const tallaM = tallaCm / 100;
+  const imc = peso / (tallaM * tallaM);
+  let clasificacion = "";
+  if (imc < 18.5) clasificacion = "Bajo Peso (Aumento sugerido)";
+  else if (imc <= 24.9) clasificacion = "Saludable (Peso óptimo)";
+  else if (imc <= 29.9) clasificacion = "Sobrepeso (Riesgo moderado)";
+  else clasificacion = "Obesidad (Riesgo alto)";
+  return { valor: imc.toFixed(1), clasificacion };
+}
+
+function clasificarICC(cintura: number, cadera: number, sexo: string) {
+  const icc = cintura / cadera;
+  let clasificacion = "";
+  if (sexo === 'femenino') {
+    if (icc < 0.80) clasificacion = "Bajo Riesgo (Sano)";
+    else if (icc <= 0.85) clasificacion = "Riesgo Medio (Precaución)";
+    else clasificacion = "Riesgo Alto (Peligro)";
+  } else {
+    if (icc < 0.95) clasificacion = "Bajo Riesgo (Sano)";
+    else if (icc <= 1.00) clasificacion = "Riesgo Medio (Precaución)";
+    else clasificacion = "Riesgo Alto (Peligro)";
+  }
+  return { valor: icc.toFixed(2), clasificacion };
+}
+
+function clasificarGrasa(grasa: number, sexo: string, edad: number) {
+  if (sexo === 'femenino') {
+    if (edad < 40) {
+      if (grasa < 21) return "Bajo"; if (grasa <= 32.9) return "Normal"; if (grasa <= 38.9) return "Elevado"; return "Muy Elevado";
+    } else if (edad <= 59) {
+      if (grasa < 23) return "Bajo"; if (grasa <= 33.9) return "Normal"; if (grasa <= 39.9) return "Elevado"; return "Muy Elevado";
+    } else {
+      if (grasa < 24) return "Bajo"; if (grasa <= 35.9) return "Normal"; if (grasa <= 41.9) return "Elevado"; return "Muy Elevado";
+    }
+  } else {
+    if (edad < 40) {
+      if (grasa < 8) return "Bajo"; if (grasa <= 19.9) return "Normal"; if (grasa <= 24.9) return "Elevado"; return "Muy Elevado";
+    } else if (edad <= 59) {
+      if (grasa < 11) return "Bajo"; if (grasa <= 21.9) return "Normal"; if (grasa <= 27.9) return "Elevado"; return "Muy Elevado";
+    } else {
+      if (grasa < 13) return "Bajo"; if (grasa <= 24.9) return "Normal"; if (grasa <= 29.9) return "Elevado"; return "Muy Elevado";
+    }
+  }
+}
+
+function clasificarVisceral(nivel: number) {
+  if (nivel <= 9) return "Normal (Saludable)";
+  if (nivel <= 14) return "Alto (Riesgo)";
+  return "Muy Alto (Peligro)";
+}
+
+function clasificarMusculo(musculo: number, sexo: string, edad: number) {
+  if (sexo === 'femenino') {
+    if (edad < 40) {
+      if (musculo < 24.3) return "Bajo"; if (musculo <= 30.3) return "Normal"; if (musculo <= 35.3) return "Atleta"; return "Exceso";
+    } else if (edad <= 59) {
+      if (musculo < 24.1) return "Bajo"; if (musculo <= 30.1) return "Normal"; if (musculo <= 35.1) return "Atleta"; return "Exceso";
+    } else {
+      if (musculo < 23.9) return "Bajo"; if (musculo <= 29.9) return "Normal"; if (musculo <= 34.9) return "Atleta"; return "Exceso";
+    }
+  } else {
+    if (edad < 40) {
+      if (musculo < 33.3) return "Bajo"; if (musculo <= 39.3) return "Normal"; if (musculo <= 44.0) return "Atleta"; return "Exceso";
+    } else if (edad <= 59) {
+      if (musculo < 33.1) return "Bajo"; if (musculo <= 39.1) return "Normal"; if (musculo <= 43.8) return "Atleta"; return "Exceso";
+    } else {
+      if (musculo < 32.9) return "Bajo"; if (musculo <= 38.9) return "Normal"; if (musculo <= 43.6) return "Atleta"; return "Exceso";
+    }
+  }
+}
+
+function calcularRuffier(p0: number, p1: number, p2: number) {
+  const index = ((p0 + p1 + p2) - 200) / 10;
+  let clasificacion = "";
+  if (index <= 0) clasificacion = "Excelente (Corazón Atleta)";
+  else if (index <= 5.0) clasificacion = "Bueno (Óptimo)";
+  else if (index <= 10.0) clasificacion = "Regular (Mejora Sugerida)";
+  else clasificacion = "Malo (Atención Necesaria)";
+  return { valor: index.toFixed(1), clasificacion };
+}
+
+function clasificarTrenSuperior(reps: number, sexo: string, edad: number) {
+  if (sexo === 'femenino') {
+    if (edad < 29) {
+      if (reps >= 30) return "Excelente"; if (reps >= 15) return "Bueno"; if (reps >= 12) return "Promedio"; return "Pobre";
+    } else {
+      if (reps >= 27) return "Excelente"; if (reps >= 13) return "Bueno"; if (reps >= 10) return "Promedio"; return "Pobre";
+    }
+  } else {
+    if (edad < 29) {
+      if (reps >= 36) return "Excelente"; if (reps >= 22) return "Bueno"; if (reps >= 17) return "Promedio"; return "Pobre";
+    } else {
+      if (reps >= 30) return "Excelente"; if (reps >= 17) return "Bueno"; if (reps >= 11) return "Promedio"; return "Pobre";
+    }
+  }
+}
+
+function clasificarTrenInferior(reps: number, sexo: string) {
+  if (sexo === 'femenino') {
+    if (reps > 44) return "Excelente (Élite)"; if (reps >= 39) return "Bueno (Óptimo)"; if (reps >= 33) return "Promedio (Estándar)"; if (reps >= 29) return "Regular (Bajo)"; return "Malo (Deficiente)";
+  } else {
+    if (reps > 48) return "Excelente (Élite)"; if (reps >= 43) return "Bueno (Óptimo)"; if (reps >= 37) return "Promedio (Estándar)"; if (reps >= 33) return "Regular (Bajo)"; return "Malo (Deficiente)";
+  }
+}
+
+function analizarEvaluacionCompleta(datos: Evaluacion) {
+  const n = num;
+  return {
+    imc: clasificarIMC(n(datos.peso), n(datos.talla)),
+    icc: clasificarICC(n(datos.cintura), n(datos.cadera), datos.sexo),
+    grasa: clasificarGrasa(n(datos.grasa), datos.sexo, n(datos.edad)),
+    visceral: clasificarVisceral(n(datos.visceral)),
+    musculo: clasificarMusculo(n(datos.musculo), datos.sexo, n(datos.edad)),
+    ruffier: calcularRuffier(n(datos.p0), n(datos.p1), n(datos.p2)),
+    superior: clasificarTrenSuperior(n(datos.trensup), datos.sexo, n(datos.edad)),
+    inferior: clasificarTrenInferior(n(datos.treninf), datos.sexo)
   };
 }
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'reto-activate-buap';
-
-// Carga externa de XLSX para manejo de Excel
-const loadXLSX = () => {
-  return new Promise((resolve) => {
-    if (window.XLSX) return resolve();
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    script.onload = resolve;
-    document.head.appendChild(script);
-  });
+const colorClass = (text: string) => {
+  if (/Excelente|Sano|Atleta|Óptimo/.test(text)) return 'text-green-600';
+  if (/Promedio|Normal/.test(text)) return 'text-blue-600';
+  if (/Regular|Elevado|Riesgo Medio|Sobrepeso/.test(text)) return 'text-yellow-600';
+  return 'text-red-600';
 };
 
-// --- CONSTANTES ---
-const UNIDADES_ACADEMICAS = [
-  "Dirección de Atención Estudiantil",
-  "Facultad de Administración", "Facultad de Arquitectura", "Facultad de Artes",
-  "Facultad de Artes Plásticas y Audiovisuales", "Facultad de Ciencias Agrícolas y Pecuarias",
-  "Facultad de Ciencias Biológicas", "Facultad de Ciencias de la Computación",
-  "Facultad de Ciencias de la Comunicación", "Facultad de Ciencias de la Electrónica",
-  "Facultad de Ciencias Físico Matemáticas", "Facultad de Ciencias Políticas y Sociales",
-  "Facultad de Ciencias Químicas", "Facultad de Contaduría Pública",
-  "Facultad de Cultura Física", "Facultad de Derecho", "Facultad de Economía",
-  "Facultad de Enfermería", "Facultad de Estomatología", "Facultad de Filosofía y Letras",
-  "Facultad de Ingeniería", "Facultad de Ingeniería Química", "Facultad de Lenguas",
-  "Facultad de Medicina", "Facultad de Medicina Veterinaria y Zootecnia",
-  "Facultad de Psicología", "Escuela de Biología", "Instituto de Ciencias (ICUAP)",
-  "Instituto de Ciencias de Gobierno y Desarrollo Estratégico", "Instituto de Ciencias Sociales y Humanidades \"Alfonso Vélez Pliego\"",
-  "Instituto de Física \"Ing. Luis Rivera Terrazas\"", "Instituto de Fisiología",
-  "Bachillerato Internacional \"5 de Mayo\"", "Preparatoria \"2 de Octubre de 1968\"",
-  "Preparatoria \"Alfonso Calderón Moreno\"", "Preparatoria \"Emiliano Zapata\"",
-  "Preparatoria \"Gral. Lázaro Cárdenas del Río\"", "Preparatoria \"Lic. Benito Juárez García\"",
-  "Preparatoria Regional \"Enrique Cabrera Barroso\"", "Preparatoria Regional \"Simón Bolívar\"",
-  "Preparatoria Urbana \"Enrique Cabrera Barroso\"", "Complejo Regional Centro",
-  "Complejo Regional Mixteca", "Complejo Regional Nororiental",
-  "Complejo Regional Norte", "Complejo Regional Sur"
-];
-const CATEGORIAS_CONTENIDO = ["Nutrición", "Cultura Física"];
-const MESES = ["Mes 1", "Mes 2", "Mes 3"];
+export default function App() {
+  const [db, setDb] = useState<typeof DEFAULT_DB>(DEFAULT_DB);
+  const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
+  const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null);
 
-const getNormalizedVideos = (videosObj, mes, cat) => {
-  if (!videosObj) return [];
-  const key = `${mes}-${cat}`;
-  const val = videosObj[key];
-  if (Array.isArray(val)) return val;
-  if (typeof val === 'string' && val.trim() !== '') return [val];
-  return [];
-};
-
-// --- COMPONENTES AUXILIARES ---
-const ModalConfirmacion = ({ isOpen, onClose, onConfirm, titulo, mensaje }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0f172a] border border-white/10 p-8 rounded-[2.5rem] max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300">
-        <div className="bg-red-500/20 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30">
-          <AlertTriangle className="text-red-500" size={32} />
-        </div>
-        <h3 className="text-xl font-black text-white text-center mb-2 uppercase tracking-tighter">{titulo}</h3>
-        <p className="text-slate-400 text-sm text-center mb-8 font-medium leading-relaxed">{mensaje}</p>
-        <div className="grid grid-cols-2 gap-4 relative z-10">
-          <button onClick={onClose} className="py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all flex items-center justify-center gap-2">Cancelar</button>
-          <button onClick={onConfirm} className="py-4 bg-gradient-to-r from-red-600 to-rose-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-[0_10px_20px_rgba(225,29,72,0.4)] transition-all hover:brightness-110">Sí, Eliminar</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const InputField = ({ label, name, value, onChange, type = "text", icon: Icon, placeholder, unit, colorClass = "blue", disabled = false }) => {
-  const themes = {
-    blue: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_10px_25px_rgba(59,130,246,0.3)] text-white border-b-4 border-blue-700",
-    indigo: "bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-[0_10px_25px_rgba(99,102,241,0.3)] text-white border-b-4 border-indigo-700",
-    emerald: "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[0_10px_25px_rgba(16,185,129,0.3)] text-white border-b-4 border-emerald-700",
-    purple: "bg-gradient-to-br from-purple-500 to-purple-700 shadow-[0_10px_25px_rgba(168,85,247,0.3)] text-white border-b-4 border-purple-800",
-    rose: "bg-gradient-to-br from-rose-400 to-rose-600 shadow-[0_10px_25px_rgba(225,29,72,0.3)] text-white border-b-4 border-rose-700",
-    cyan: "bg-gradient-to-br from-cyan-400 to-cyan-600 shadow-[0_10px_25px_rgba(6,182,212,0.3)] text-white border-b-4 border-cyan-700",
-    orange: "bg-gradient-to-br from-orange-400 to-orange-500 shadow-[0_10px_25px_rgba(249,115,22,0.3)] text-white border-b-4 border-orange-600",
-    yellow: "bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_10px_25px_rgba(245,158,11,0.3)] text-white border-b-4 border-orange-600",
-  };
-  const theme = themes[colorClass] || themes.blue;
-  const interactionClasses = disabled ? "opacity-60 grayscale-[0.3] cursor-not-allowed" : "hover:scale-[1.02] focus-within:scale-[1.02] focus-within:shadow-2xl";
-
-  return (
-    <div className={`relative flex flex-col justify-center w-full p-4 md:p-5 rounded-[2rem] transition-transform ${interactionClasses} ${theme}`}>
-      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md">
-        {Icon && <Icon size={14} />}
-        <label className="text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-none truncate">{label}</label>
-      </div>
-      <div className="flex items-center justify-between">
-        <input
-          type={type} name={name} value={value || ""} onChange={onChange} placeholder={placeholder} disabled={disabled}
-          className={`w-full bg-transparent outline-none text-xl md:text-2xl font-black placeholder:text-white/40 text-white drop-shadow-md ${disabled ? 'cursor-not-allowed' : ''}`}
-        />
-        {unit && <span className="text-[10px] font-black uppercase opacity-70 ml-2 drop-shadow-md whitespace-nowrap">{unit}</span>}
-      </div>
-    </div>
-  );
-};
-
-const SelectField = ({ label, name, value, onChange, options, icon: Icon, colorClass = "blue", disabled = false }) => {
-  const themes = {
-    blue: "bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_10px_25px_rgba(59,130,246,0.3)] text-white border-b-4 border-blue-700",
-  };
-  const theme = themes[colorClass] || themes.blue;
-  const interactionClasses = disabled ? "opacity-60 grayscale-[0.3] cursor-not-allowed" : "hover:scale-[1.02] focus-within:scale-[1.02] focus-within:shadow-2xl";
-
-  return (
-    <div className={`relative flex flex-col justify-center w-full p-5 rounded-[2rem] transition-transform ${interactionClasses} ${theme}`}>
-      <div className="flex items-center gap-2 mb-1 opacity-90 drop-shadow-md">
-        {Icon && <Icon size={16} />}
-        <label className="text-[11px] font-black uppercase tracking-widest">{label}</label>
-      </div>
-      <select
-        name={name} value={value || ""} onChange={onChange} disabled={disabled}
-        className={`w-full bg-transparent outline-none text-lg font-black text-white appearance-none drop-shadow-md ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-      >
-        <option value="" className="bg-slate-900 text-slate-400">Seleccionar...</option>
-        {options.map(o => <option key={o.value || o} value={o.value || o} className="bg-slate-900 text-white">{o.label || o}</option>)}
-      </select>
-    </div>
-  );
-};
-
-const ReadOnlyField = ({ label, value }) => (
-  <div className="flex flex-col p-4 bg-[#0c1220]/50 rounded-[1.5rem] border border-white/5">
-     <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1 opacity-80">{label}</span>
-     <span className="text-sm font-bold text-white">{value || "No especificado"}</span>
-  </div>
-);
-
-const ProgressLineChart = ({ data, label, unit, colorKey }) => {
-  const [selectedPoint, setSelectedPoint] = useState(null);
-  if (!data || data.length === 0) return null;
-
-  const validData = data.filter(d => d && !isNaN(parseFloat(d.value)));
-  if (validData.length === 0) return null;
-
-  const maxVal = Math.max(...validData.map(d => Math.abs(parseFloat(d.value) || 0)), 1) * 1.3;
-  const colorMaps = {
-    blue: { stroke: "#3b82f6" }, purple: { stroke: "#a855f7" }, yellow: { stroke: "#f59e0b" }, emerald: { stroke: "#10b981" },
-    rose: { stroke: "#f43f5e" }, cyan: { stroke: "#06b6d4" }, indigo: { stroke: "#6366f1" }, orange: { stroke: "#f97316" }
-  };
-  const theme = colorMaps[colorKey] || colorMaps.blue;
-
-  const points = data.map((item, idx) => {
-    const x = (idx / (data.length - 1 || 1)) * 100;
-    const y = 100 - ((parseFloat(item.value) || 0) / maxVal) * 100;
-    return { x, y, val: item.value, mes: item.mes };
-  });
-  
-  const pathData = points.length > 1 
-    ? points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-    : `M 0 ${points[0]?.y || 50} L 100 ${points[0]?.y || 50}`;
-
-  return (
-    <div className="bg-[#0f172a]/60 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/5 shadow-xl group hover:border-white/10 transition-all duration-300 relative overflow-hidden">
-      <div className={`absolute top-0 right-0 w-32 h-32 blur-[50px] opacity-20 rounded-full pointer-events-none`} style={{backgroundColor: theme.stroke}}></div>
-      <div className="flex justify-between items-center mb-6 relative z-10">
-        <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2" style={{color: theme.stroke}}>
-          <TrendingUp size={14} /> {label}
-        </h4>
-        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">{unit}</span>
-      </div>
-      <div className="relative h-40 w-full mb-4 z-10">
-        <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-          <path d={`${pathData} L 100 100 L 0 100 Z`} fill={theme.stroke} fillOpacity="0.1" />
-          <path d={pathData} fill="none" stroke={theme.stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: `drop-shadow(0 4px 6px ${theme.stroke}40)` }} />
-          {points.map((p, i) => (
-            <g key={i} onClick={() => setSelectedPoint(i === selectedPoint ? null : i)} className="cursor-pointer">
-              <circle cx={p.x} cy={p.y} r="10" fill="transparent" />
-              <circle cx={p.x} cy={p.y} r={selectedPoint === i ? "5" : "3"} fill={theme.stroke} className="transition-all duration-300" style={{ filter: `drop-shadow(0 0 8px ${theme.stroke})` }}/>
-              {(selectedPoint === i || points.length === 1) && (
-                <text x={p.x} y={p.y - 12} textAnchor="middle" className="text-[8px] font-black fill-white drop-shadow-md">{p.val}</text>
-              )}
-            </g>
-          ))}
-        </svg>
-        <div className="absolute -bottom-6 left-0 right-0 flex justify-between px-1">
-          {points.map((p, i) => <span key={i} className={`text-[7px] font-black uppercase transition-colors ${selectedPoint === i ? 'text-white' : 'text-slate-500'}`}>{p.mes}</span>)}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- APP PRINCIPAL ---
-const App = () => {
-  const [currentUser, setCurrentUser] = useState(null); 
-  const [userData, setUserData] = useState(null); 
-  const [loginForm, setLoginForm] = useState({ matricula: '', password: '' });
-  const [loginError, setLoginError] = useState("");
-  const [regError, setRegError] = useState("");
-  const [activeTab, setActiveTab] = useState('registro');
-  const [loading, setLoading] = useState(true);
-  const [historial, setHistorial] = useState([]);
-  const [usuariosLista, setUsuariosLista] = useState([]);
-  const [configGlobal, setConfigGlobal] = useState({ desbloqueos: {}, videos: {} });
-  
-  const [showSurvey, setShowSurvey] = useState(false);
-  const [adminSurveyView, setAdminSurveyView] = useState({ show: false, data: null, student: null });
-  
-  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null, type: null, label: '' });
-  const [medalModal, setMedalModal] = useState({ show: false, title: '', desc: '', detail: '', icon: null, themeClass: '', colorClass: '', active: false });
-  const [videoInputs, setVideoInputs] = useState({});
-  const [isImporting, setIsImporting] = useState(false);
-  const [authFailed, setAuthFailed] = useState(false);
-  
-  const fileInputRef = useRef(null);
-
-  const [datosRegistro, setDatosRegistro] = useState({
-    nombre: '', matricula: '', unidadAcademica: '', edad: '', sexo: 'M', etapa: 'Inicial',
-    peso: '', talla: '', cintura: '', cadera: '', p0: '', p1: '', p2: '', 
-    trenSuperior: '', trenInferior: '', 
-    grasaCorporal: '', grasaVisceral: '', musculoEsqueletico: ''
-  });
-  
-  // Alta Administrador (SIN sexo y edad)
-  const [nuevoEstudiante, setNuevoEstudiante] = useState({ matricula: '', password: '', nombre: '', unidadAcademica: '' });
-  
-  const [encuesta, setEncuesta] = useState({
-    condicionMedica: '', dolorCronico: '', limitacionEspecifica: '', medicamentos: '', defectosPostura: '', antecedentesFamiliares: '',
-    objetivoPrincipal: '', nivelActividad: '', deportePasado: '', actividadesAtractivas: '',
-    tiempoEntreno: '', lugarEntreno: '', implementos: '', incluyeCardioFuerza: '', obstaculoConstancia: '',
-    calidadSueno: '', nivelEnergia: '', tipoMotivacion: '',
-    correoInstitucional: '', telefono: '', horarioContacto: ''
-  });
-
-  const mesesEtapas = ["Inicial", "Mes 1", "Mes 2", "Mes 3"];
-
+  // Inicializar DB
   useEffect(() => {
-    const init = async () => {
+    const local = localStorage.getItem('retoActivateDB_v2');
+    if (local) {
       try {
-        await loadXLSX();
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (e) { 
-        console.error("Firebase Auth Fail", e); 
-        setAuthFailed(true);
+        setDb(JSON.parse(local));
+      } catch (e) {
+        console.error("Error parsing DB", e);
       }
-    };
-    init();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
 
-  useEffect(() => {
-    if (!currentUser || !userData) return;
-    const evalCol = collection(db, 'artifacts', appId, 'public', 'data', 'evaluations');
-    const unsubEvals = onSnapshot(evalCol, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (userData.role === 'student') {
-        setHistorial(data.filter(h => h.matricula === userData.matricula));
-      } else {
-        setHistorial(data);
-      }
-    }, (err) => console.error("Snapshot Evaluations Error"));
-
-    let unsubUsers = () => {};
-    if (userData.role === 'admin') {
-      const userCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-      unsubUsers = onSnapshot(userCol, (snapshot) => {
-        setUsuariosLista(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      }, (err) => console.error("Snapshot Users Error"));
-    }
-    return () => { unsubEvals(); unsubUsers(); };
-  }, [currentUser, userData]);
-
-  const downloadTemplate = () => {
-    if (!window.XLSX) return alert("Librería de Excel cargando...");
-    const data = [
-      ["Nombre", "Matricula", "Password", "Unidad Academica"],
-      ["Juan Perez", "2024111", "Clave123", "Facultad de Administración"],
-      ["Maria Lopez", "2024222", "Clave456", "Facultad de Medicina"]
-    ];
-    const ws = window.XLSX.utils.aoa_to_sheet(data);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Alumnos");
-    window.XLSX.writeFile(wb, "Plantilla_Alumnos_Reto.xlsx");
+  // Guardar DB
+  const saveDB = (newDb: typeof DEFAULT_DB) => {
+    setDb(newDb);
+    localStorage.setItem('retoActivateDB_v2', JSON.stringify(newDb));
   };
 
-  const handleExcelUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target.result;
-        const wb = window.XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = window.XLSX.utils.sheet_to_json(ws);
-
-        let successCount = 0;
-        for (const row of data) {
-          const matricula = String(row.Matricula || row.matricula || "").trim().toUpperCase();
-          if (!matricula) continue;
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', matricula), {
-            nombre: String(row.Nombre || row.nombre || ""),
-            matricula,
-            password: String(row.Password || row.password || "RETO123"),
-            unidadAcademica: String(row["Unidad Academica"] || row.unidadAcademica || ""),
-            role: 'student',
-            videosVistos: []
-          });
-          successCount++;
-        }
-        alert(`¡Importación completada! ${successCount} alumnos registrados.`);
-      } catch (err) {
-        alert("Error al procesar el Excel. Verifique el formato.");
-      } finally {
-        setIsImporting(false);
-        e.target.value = null;
-      }
-    };
-    reader.readAsBinaryString(file);
+  const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
-
-  const handleLogin = async () => {
-    setLoginError("");
-    const m = loginForm.matricula.trim().toUpperCase();
-    const p = loginForm.password.trim();
-    if (m === 'ADMIN' && p === 'RETO2024') {
-      setUserData({ role: 'admin', nombre: 'Administrador DAES', matricula: 'ADMIN' });
-      setActiveTab('usuarios');
-      return;
-    }
-    if (!m || !p) { setLoginError("La matrícula o la contraseña es incorrecta."); return; }
-    try {
-      const userDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', m));
-      if (userDoc.exists() && userDoc.data().password === p) {
-        const data = userDoc.data();
-        setUserData(data);
-        setDatosRegistro(prev => ({ ...prev, ...data }));
-        setActiveTab('registro');
-      } else { setLoginError("La matrícula o la contraseña es incorrecta."); }
-    } catch (e) { setLoginError("Error de conexión con la base de datos."); }
-  };
-
-  const handleLogout = () => { setUserData(null); setLoginForm({ matricula: '', password: '' }); setLoginError(""); };
-
-  const triggerDelete = (id, type, label) => setDeleteConfirm({ show: true, id, type, label });
-  
-  const executeDelete = async () => {
-    const { id, type } = deleteConfirm;
-    try {
-      if (type === 'user') await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', id));
-      else await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'evaluations', id));
-      setDeleteConfirm({ show: false, id: null, type: null, label: '' });
-    } catch (e) { alert("Error al eliminar."); }
-  };
-
-  const registrarUsuario = async () => {
-    if (!nuevoEstudiante.matricula || !nuevoEstudiante.password) return alert("Matrícula y clave obligatorias.");
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', String(nuevoEstudiante.matricula).trim().toUpperCase()), {
-        ...nuevoEstudiante, 
-        matricula: String(nuevoEstudiante.matricula).trim().toUpperCase(),
-        role: 'student',
-        videosVistos: []
-      });
-      alert("Alumno registrado exitosamente.");
-      setNuevoEstudiante({ matricula: '', password: '', nombre: '', unidadAcademica: '' });
-    } catch (e) { alert("Error al crear usuario."); }
-  };
-
-  const exportarCSV = () => {
-    const header = "Fecha,Matricula,Nombre,Etapa,Ruffier,Sup,Inf,GrasaCorp,GrasaVisc,MusculoEsq\n";
-    const dataRows = historial.map(h => `${h.fecha},${h.matricula},${h.nombre},${h.etapa},${h.ruffierVal},${h.trenSuperior},${h.trenInferior},${h.grasaCorporal||''},${h.grasaVisceral||''},${h.musculoEsqueletico||''}`).join("\n");
-    const blob = new Blob([header + dataRows], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = "Reporte_DAES_BUAP.csv"; a.click();
-  };
-
-  const handlePhaseClick = (m) => {
-    setRegError("");
-    const record = historial.find(h => h.etapa === m && h.matricula === userData.matricula);
-    if (record) {
-      setDatosRegistro(prev => ({ ...prev, ...record, etapa: m }));
-    } else {
-      setDatosRegistro(prev => ({
-        ...prev, 
-        etapa: m,
-        peso: '', talla: '', cintura: '', cadera: '', p0: '', p1: '', p2: '', 
-        trenSuperior: '', trenInferior: '', grasaCorporal: '', grasaVisceral: '', musculoEsqueletico: ''
-      }));
-    }
-  };
-
-  const toggleSurveyAccess = async (mat, status) => { 
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mat), { surveyEnabled: !status }); 
-  };
-  
-  const saveSurvey = async () => {
-    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userData.matricula), { encuestaCompletada: true, datosEncuesta: encuesta });
-    setShowSurvey(false);
-    alert("Expediente guardado exitosamente.");
-  };
-
-  // --- CONTENIDOS / VIDEOS LOGIC ---
-  const toggleUnlock = async (mes, cat) => {
-    const key = `${mes}-${cat}`;
-    const newStatus = !configGlobal.desbloqueos?.[key];
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global'), { desbloqueos: { ...configGlobal.desbloqueos, [key]: newStatus } }, { merge: true });
-  };
-
-  const addVideoLink = async (mes, cat) => {
-    const key = `${mes}-${cat}`;
-    const newUrl = videoInputs[key];
-    if (!newUrl) return alert("Pega un enlace primero.");
-    const currentVideos = getNormalizedVideos(configGlobal.videos, mes, cat);
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global'), { videos: { ...configGlobal.videos, [key]: [...currentVideos, newUrl] } }, { merge: true });
-    setVideoInputs({...videoInputs, [key]: ''}); 
-  };
-
-  const removeVideoLink = async (mes, cat, idx) => {
-    const key = `${mes}-${cat}`;
-    const currentVideos = getNormalizedVideos(configGlobal.videos, mes, cat);
-    const newVideos = currentVideos.filter((_, i) => i !== idx);
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global'), { videos: { ...configGlobal.videos, [key]: newVideos } }, { merge: true });
-  };
-
-  const verVideo = async (mes, cat, idx, url) => {
-    window.open(url, '_blank');
-    const viewKey = `${mes}-${cat}-${idx}`; 
-    if (!userData.videosVistos?.includes(viewKey)) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userData.matricula), { videosVistos: arrayUnion(viewKey) });
-      setUserData(prev => ({...prev, videosVistos: [...(prev.videosVistos||[]), viewKey]}));
-    }
-  };
-
-  const hasCompletedCategory = (mes, cat) => {
-    const key = `${mes}-${cat}`;
-    const videosList = getNormalizedVideos(configGlobal.videos, mes, cat);
-    if (videosList.length === 0) return false; 
-    return videosList.every((_, i) => userData.videosVistos?.includes(`${key}-${i}`) || (i === 0 && userData.videosVistos?.includes(key)));
-  };
-
-  // --- GENERADOR DE WORD ---
-  const descargarExpedienteWord = () => {
-    if (!adminSurveyView.student || !adminSurveyView.data) return;
-    const std = adminSurveyView.student;
-    const enc = adminSurveyView.data;
-    const fases = ['Inicial', 'Mes 1', 'Mes 2', 'Mes 3'];
-    
-    // Obtenemos las evaluaciones cruzando la matrícula del estudiante seleccionado y la fase
-    const getFase = (etapa) => historial.find(h => h.matricula === std.matricula && h.etapa === etapa) || {};
-    
-    const metricas = [
-      { key: 'peso', label: 'Peso Corporal (kg)' },
-      { key: 'talla', label: 'Estatura (cm)' },
-      { key: 'cintura', label: 'Cintura (cm)' },
-      { key: 'cadera', label: 'Cadera (cm)' },
-      { key: 'grasaCorporal', label: 'Grasa Corporal (%)' },
-      { key: 'grasaVisceral', label: 'Grasa Visceral (Lvl)' },
-      { key: 'musculoEsqueletico', label: 'Músculo Esquelético (%)' },
-      { key: 'p0', label: 'Ruffier P0 (Reposo)' },
-      { key: 'p1', label: 'Ruffier P1 (Post-Esfuerzo)' },
-      { key: 'p2', label: 'Ruffier P2 (Recuperación)' },
-      { key: 'trenSuperior', label: 'Fuerza Tren Superior (Reps)' },
-      { key: 'trenInferior', label: 'Fuerza Tren Inferior (Reps)' }
-    ];
-
-    let html = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>Expediente Clínico - ${std.matricula}</title>
-        <style>
-          body { font-family: 'Calibri', sans-serif; }
-          h1 { color: #0f172a; text-align: center; font-size: 24px; text-transform: uppercase; }
-          h2 { color: #0284c7; border-bottom: 2px solid #0284c7; padding-bottom: 4px; font-size: 18px; margin-top: 30px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
-          th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
-          th { background-color: #f1f5f9; color: #334155; font-weight: bold; width: 25%; }
-          td { color: #0f172a; width: 25%; }
-          .fase-th { text-align: center; background-color: #e2e8f0; width: 16%; }
-          .fase-td { text-align: center; font-weight: bold; }
-          .param-th { width: 36%; }
-        </style>
-      </head>
-      <body>
-        <h1>Expediente Clínico y de Rendimiento</h1>
-        <p style="text-align:center; color:#64748b; font-weight:bold;">Reto Actívate - DAES BUAP</p>
-        
-        <h2>I. Ficha de Identificación</h2>
-        <table>
-          <tr><th>Nombre Completo</th><td>${std.nombre || 'No registrado'}</td><th>Matrícula Institucional</th><td>${std.matricula}</td></tr>
-          <tr><th>Unidad Académica</th><td colspan="3">${std.unidadAcademica || 'No registrado'}</td></tr>
-          <tr><th>Edad</th><td>${std.edad || 'No registrado'}</td><th>Sexo Biológico</th><td>${std.sexo === 'M' ? 'Masculino' : std.sexo === 'F' ? 'Femenino' : 'No registrado'}</td></tr>
-        </table>
-
-        <h2>II. Salud Física y Clínica</h2>
-        <table>
-          <tr><th>Condición Crónica</th><td>${enc.condicionMedica || 'Ninguna'}</td><th>Dolor Crónico/Lesión</th><td>${enc.dolorCronico || 'Ninguno'}</td></tr>
-          <tr><th>Limitación Específica</th><td>${enc.limitacionEspecifica || 'Ninguna'}</td><th>Medicamentos Actuales</th><td>${enc.medicamentos || 'Ninguno'}</td></tr>
-          <tr><th>Defectos de Postura</th><td>${enc.defectosPostura || 'Ninguno'}</td><th>Antecedentes Familiares</th><td>${enc.antecedentesFamiliares || 'Ninguno'}</td></tr>
-        </table>
-
-        <h2>III. Metas y Experiencia Deportiva</h2>
-        <table>
-          <tr><th>Objetivo Principal</th><td>${enc.objetivoPrincipal || 'No definido'}</td><th>Nivel de Actividad</th><td>${enc.nivelActividad || 'No definido'}</td></tr>
-          <tr><th>Deporte en el Pasado</th><td>${enc.deportePasado || 'Ninguno'}</td><th>Actividades Atractivas</th><td>${enc.actividadesAtractivas || 'Ninguna'}</td></tr>
-        </table>
-
-        <h2>IV. Logística de Entrenamiento</h2>
-        <table>
-          <tr><th>Tiempo Disponible</th><td>${enc.tiempoEntreno || 'No definido'}</td><th>Lugar de Entrenamiento</th><td>${enc.lugarEntreno || 'No definido'}</td></tr>
-          <tr><th>Implementos Disponibles</th><td>${enc.implementos || 'Ninguno'}</td><th>Preferencia Cardio/Fuerza</th><td>${enc.incluyeCardioFuerza || 'No definido'}</td></tr>
-          <tr><th>Mayor Obstáculo</th><td colspan="3">${enc.obstaculoConstancia || 'Ninguno'}</td></tr>
-        </table>
-
-        <h2>V. Bienestar y Estilo de Vida</h2>
-        <table>
-          <tr><th>Calidad de Sueño</th><td>${enc.calidadSueno || 'No definido'}</td><th>Nivel de Energía</th><td>${enc.nivelEnergia || 'No definido'}</td></tr>
-          <tr><th>Tipo de Motivación</th><td colspan="3">${enc.tipoMotivacion || 'No definido'}</td></tr>
-        </table>
-
-        <h2>VI. Contacto Institucional</h2>
-        <table>
-          <tr><th>Correo Institucional</th><td>${enc.correoInstitucional || 'No proporcionado'}</td><th>Teléfono de Contacto</th><td>${enc.telefono || 'No proporcionado'}</td></tr>
-          <tr><th>Horario Preferido</th><td colspan="3">${enc.horarioContacto || 'No definido'}</td></tr>
-        </table>
-
-        <h2>VII. Evolución de Pruebas Físicas</h2>
-        <table>
-          <tr>
-            <th class="fase-th param-th">Parámetro Evaluado</th>
-            <th class="fase-th">Fase Inicial</th>
-            <th class="fase-th">Mes 1</th>
-            <th class="fase-th">Mes 2</th>
-            <th class="fase-th">Mes 3</th>
-          </tr>
-          ${metricas.map(m => `
-            <tr>
-              <td><b>${m.label}</b></td>
-              ${fases.map(f => `<td class="fase-td">${getFase(f)[m.key] || '-'}</td>`).join('')}
-            </tr>
-          `).join('')}
-        </table>
-        
-        <br/><br/>
-        <p style="text-align:right; font-size:12px; color:#94a3b8; border-top: 1px solid #cbd5e1; padding-top: 10px;">Documento generado automáticamente por el sistema <b>Reto Actívate DAES BUAP</b>.</p>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Expediente_Activate_${std.matricula}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // --- MOTOR CLÍNICO: INTERPRETACIÓN DE DATOS ---
-  const resultadosActuales = useMemo(() => {
-    const { peso, talla, cintura, cadera, p0, p1, p2, trenSuperior, trenInferior, sexo, edad, grasaCorporal, grasaVisceral, musculoEsqueletico } = datosRegistro;
-    const p = parseFloat(peso), t = parseFloat(talla), c = parseFloat(cintura), ca = parseFloat(cadera);
-    const gc = parseFloat(grasaCorporal), gv = parseFloat(grasaVisceral), me = parseFloat(musculoEsqueletico);
-    
-    // USAMOS EDAD Y SEXO EN TIEMPO REAL
-    const gender = sexo || userData?.sexo || 'M';
-    const age = parseInt(edad) || parseInt(userData?.edad) || 20; 
-    
-    // IMC
-    const imc = (p > 0 && t > 0) ? (p / Math.pow(t/100, 2)).toFixed(1) : null;
-    let imcInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (imc) {
-        if (imc < 18.5) imcInterp = { label: "Bajo Peso", color: "text-blue-400", desc: "Aumento sugerido", bg: "bg-blue-500/10 border-blue-500/30" };
-        else if (imc < 25) imcInterp = { label: "Saludable", color: "text-emerald-400", desc: "Peso óptimo", bg: "bg-emerald-500/10 border-emerald-500/30" };
-        else if (imc < 30) imcInterp = { label: "Sobrepeso", color: "text-yellow-400", desc: "Riesgo moderado", bg: "bg-yellow-500/10 border-yellow-500/30" };
-        else imcInterp = { label: "Obesidad", color: "text-red-400", desc: "Riesgo alto", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // ICC
-    const icc = (c > 0 && ca > 0) ? (c / ca).toFixed(2) : null;
-    let iccInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (icc) {
-        const val = parseFloat(icc);
-        const limit = gender === 'M' ? 0.95 : 0.80;
-        const upper = gender === 'M' ? 1.0 : 0.85;
-        if (val < limit) iccInterp = { label: "Riesgo Bajo", color: "text-emerald-400", desc: "Sano", bg: "bg-emerald-500/10 border-emerald-500/30" };
-        else if (val <= upper) iccInterp = { label: "Riesgo Medio", color: "text-yellow-400", desc: "Precaución", bg: "bg-yellow-500/10 border-yellow-500/30" };
-        else iccInterp = { label: "Riesgo Alto", color: "text-red-400", desc: "Peligro", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // Ruffier
-    let ruffierVal = (p0 && p1 && p2) ? (((parseFloat(p0) + parseFloat(p1) + parseFloat(p2)) - 200) / 10).toFixed(1) : null;
-    let ruffierInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (ruffierVal) {
-        const v = parseFloat(ruffierVal);
-        if (v <= 0) ruffierInterp = { label: "Excelente", color: "text-blue-400", desc: "Corazón Atleta", bg: "bg-blue-500/10 border-blue-500/30" };
-        else if (v <= 5) ruffierInterp = { label: "Bueno", color: "text-emerald-400", desc: "Óptimo", bg: "bg-emerald-500/10 border-emerald-500/30" };
-        else if (v <= 10) ruffierInterp = { label: "Regular", color: "text-yellow-400", desc: "Mejora Sugerida", bg: "bg-yellow-500/10 border-yellow-500/30" };
-        else ruffierInterp = { label: "Malo", color: "text-red-400", desc: "Atención Necesaria", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // TREN SUPERIOR
-    let supInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (trenSuperior) {
-        const v = parseFloat(trenSuperior);
-        let b = gender === 'M' ? (age < 29 ? [36, 22, 17] : [30, 17, 11]) : (age < 29 ? [30, 15, 12] : [27, 13, 10]);
-
-        if (v >= b[0]) supInterp = { label: "Excelente", color: "text-emerald-400", desc: "Élite", bg: "bg-emerald-500/10 border-emerald-500/30" };
-        else if (v >= b[1]) supInterp = { label: "Bueno", color: "text-blue-400", desc: "Óptimo", bg: "bg-blue-500/10 border-blue-500/30" };
-        else if (v >= b[2]) supInterp = { label: "Promedio", color: "text-yellow-400", desc: "Estándar", bg: "bg-yellow-500/10 border-yellow-500/30" };
-        else supInterp = { label: "Pobre", color: "text-red-400", desc: "Deficiente", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // Tren Inferior
-    let infInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (trenInferior) {
-        const v = parseFloat(trenInferior);
-        const b = gender === 'M' ? [48, 43, 37, 33] : [44, 39, 33, 29];
-        if (v > b[0]) infInterp = { label: "Excelente", color: "text-emerald-400", desc: "Élite", bg: "bg-emerald-500/10 border-emerald-500/30" };
-        else if (v >= b[1]) infInterp = { label: "Bueno", color: "text-blue-400", desc: "Óptimo", bg: "bg-blue-500/10 border-blue-500/30" };
-        else if (v >= b[2]) infInterp = { label: "Promedio", color: "text-yellow-400", desc: "Estándar", bg: "bg-yellow-500/10 border-yellow-500/30" };
-        else if (v >= b[3]) infInterp = { label: "Regular", color: "text-orange-400", desc: "Bajo", bg: "bg-orange-500/10 border-orange-500/30" };
-        else infInterp = { label: "Malo", color: "text-red-400", desc: "Deficiente", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // GRASA CORPORAL
-    let gcInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (!isNaN(gc)) {
-      let b = [];
-      if (gender === 'F') {
-        if (age < 40) b = [21.0, 33.0, 39.0];
-        else if (age < 60) b = [23.0, 34.0, 40.0];
-        else b = [24.0, 36.0, 42.0];
-      } else {
-        if (age < 40) b = [8.0, 20.0, 25.0];
-        else if (age < 60) b = [11.0, 22.0, 28.0];
-        else b = [13.0, 25.0, 30.0];
-      }
-      if (gc < b[0]) gcInterp = { label: "Bajo", color: "text-blue-400", desc: "Aumentar", bg: "bg-blue-500/10 border-blue-500/30" };
-      else if (gc < b[1]) gcInterp = { label: "Normal", color: "text-emerald-400", desc: "Óptimo", bg: "bg-emerald-500/10 border-emerald-500/30" };
-      else if (gc < b[2]) gcInterp = { label: "Elevado", color: "text-yellow-400", desc: "Precaución", bg: "bg-yellow-500/10 border-yellow-500/30" };
-      else gcInterp = { label: "Muy Elevado", color: "text-red-400", desc: "Riesgo", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // GRASA VISCERAL
-    let gvInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (!isNaN(gv)) {
-      if (gv <= 9) gvInterp = { label: "Normal", color: "text-emerald-400", desc: "Saludable", bg: "bg-emerald-500/10 border-emerald-500/30" };
-      else if (gv <= 14) gvInterp = { label: "Alto", color: "text-orange-400", desc: "Riesgo", bg: "bg-orange-500/10 border-orange-500/30" };
-      else gvInterp = { label: "Muy Alto", color: "text-red-400", desc: "Peligro", bg: "bg-red-500/10 border-red-500/30" };
-    }
-
-    // MÚSCULO ESQUELÉTICO
-    let meInterp = { label: "Pendiente", color: "text-slate-500", desc: "-", bg: "bg-[#0f172a] border-white/5" };
-    if (!isNaN(me)) {
-      let b = [];
-      if (gender === 'F') {
-        if (age < 40) b = [24.3, 30.4, 35.4];
-        else if (age < 60) b = [24.1, 30.2, 35.2];
-        else b = [23.9, 30.0, 35.0];
-      } else {
-        if (age < 40) b = [33.3, 39.4, 44.1];
-        else if (age < 60) b = [33.1, 39.2, 43.9];
-        else b = [32.9, 39.0, 43.7];
-      }
-      if (me < b[0]) meInterp = { label: "Bajo", color: "text-red-400", desc: "Aumentar masa", bg: "bg-red-500/10 border-red-500/30" };
-      else if (me < b[1]) meInterp = { label: "Normal", color: "text-emerald-400", desc: "Óptimo", bg: "bg-emerald-500/10 border-emerald-500/30" };
-      else if (me < b[2]) meInterp = { label: "Elevado", color: "text-blue-400", desc: "Atleta", bg: "bg-blue-500/10 border-blue-500/30" };
-      else meInterp = { label: "Muy Elevado", color: "text-purple-400", desc: "Exceso", bg: "bg-purple-500/10 border-purple-500/30" };
-    }
-
-    return { imc, imcInterp, icc, iccInterp, ruffierVal, ruffierInterp, supInterp, infInterp, gcInterp, gvInterp, meInterp };
-  }, [datosRegistro, userData]);
-
-  const evolUser = useMemo(() => {
-    if (!userData || userData.role !== 'student') return null;
-    const records = historial.filter(h => h.matricula === userData.matricula).sort((a, b) => mesesEtapas.indexOf(a.etapa) - mesesEtapas.indexOf(b.etapa));
-    const mapData = (key) => mesesEtapas.map(m => ({ mes: m, value: records.find(r => r.etapa === m)?.[key] || 0 }));
-    
-    let highlight = { area: "En Proceso", msg: "Registra tu primera fase para comenzar." };
-    
-    if (records.length === 1) {
-      highlight = { area: "Fase Inicial", msg: "Primera evaluación registrada. ¡Sigue así!" };
-    } else if (records.length >= 2) {
-      const p1 = records[0];
-      const pL = records[records.length - 1];
-      
-      const impSup = (parseFloat(pL.trenSuperior) || 0) - (parseFloat(p1.trenSuperior) || 0);
-      const impInf = (parseFloat(pL.trenInferior) || 0) - (parseFloat(p1.trenInferior) || 0);
-      const impRuf = (parseFloat(p1.ruffierVal) || 0) - (parseFloat(pL.ruffierVal) || 0); 
-      
-      if (impSup <= 0 && impInf <= 0 && impRuf <= 0) {
-         highlight = { area: "Activo", msg: "Manteniendo tu rendimiento base." };
-      } else {
-         const maxImp = Math.max(impSup, impInf, impRuf);
-         if (maxImp === impRuf && impRuf > 0) {
-             highlight = { area: "Mejora en Cardio", msg: `Tu índice Ruffier mejoró en ${impRuf.toFixed(1)} puntos.` };
-         } else if (maxImp === impSup && impSup > 0) {
-             highlight = { area: "Fuerza Superior", msg: `¡Ganaste +${impSup} repeticiones!` };
-         } else if (maxImp === impInf && impInf > 0) {
-             highlight = { area: "Potencia Inferior", msg: `¡Aumentaste +${impInf} repeticiones!` };
-         }
-      }
-    }
-
-    return { 
-      peso: mapData('peso'), ruffier: mapData('ruffierVal'), superior: mapData('trenSuperior'), inferior: mapData('trenInferior'),
-      grasaCorporal: mapData('grasaCorporal'), grasaVisceral: mapData('grasaVisceral'), musculoEsqueletico: mapData('musculoEsqueletico'),
-      highlight 
-    };
-  }, [historial, userData]);
-
-  const finalizarRegistro = async () => {
-    setRegError("");
-    const req = ['peso', 'talla', 'cintura', 'cadera', 'p0', 'p1', 'p2', 'trenSuperior', 'trenInferior', 'sexo', 'edad'];
-    const newReq = ['grasaCorporal', 'grasaVisceral', 'musculoEsqueletico'];
-    if ([...req, ...newReq].some(f => !datosRegistro[f])) return setRegError("Complete todos los campos de evaluación (incluyendo grasa, músculo, sexo y edad) antes de finalizar.");
-    
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'evaluations'), {
-        ...datosRegistro, ...resultadosActuales, matricula: userData.matricula, nombre: userData.nombre, fecha: new Date().toLocaleDateString(), timestamp: Date.now()
-      });
-
-      if (datosRegistro.edad !== userData.edad || datosRegistro.sexo !== userData.sexo) {
-         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userData.matricula), {
-            edad: datosRegistro.edad,
-            sexo: datosRegistro.sexo
-         }, { merge: true });
-         setUserData(prev => ({ ...prev, edad: datosRegistro.edad, sexo: datosRegistro.sexo }));
-      }
-      
-      alert("¡Registro guardado exitosamente! Avanzando a la siguiente fase...");
-      
-      const currentIdx = mesesEtapas.indexOf(datosRegistro.etapa);
-      const nextEtapa = (currentIdx >= 0 && currentIdx < mesesEtapas.length - 1) ? mesesEtapas[currentIdx + 1] : datosRegistro.etapa;
-
-      setDatosRegistro(p => ({ 
-        ...p, 
-        etapa: nextEtapa, 
-        peso: '', talla: '', cintura: '', cadera: '', p0: '', p1: '', p2: '', trenSuperior: '', trenInferior: '', grasaCorporal: '', grasaVisceral: '', musculoEsqueletico: '' 
-      }));
-    } catch (e) { 
-      console.error(e);
-      alert(`Error al guardar en la base de datos.`); 
-    }
-  };
-
-  if (loading) return <div className="min-h-screen bg-[#070913] flex items-center justify-center"><Loader2 className="animate-spin text-cyan-400" size={40} /></div>;
-
-  if (!userData) {
-    return (
-      <div className="min-h-screen bg-[#070913] flex items-center justify-center p-4 relative overflow-hidden">
-        <style>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-150%) skewX(-15deg); }
-            100% { transform: translateX(150%) skewX(-15deg); }
-          }
-          @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(40px, -60px) scale(1.1); }
-            66% { transform: translate(-30px, 30px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
-          }
-          .animate-blob { animation: blob 15s infinite alternate; }
-          .animation-delay-2000 { animation-delay: 2s; }
-          .animation-delay-4000 { animation-delay: 4s; }
-        `}</style>
-        
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
-          <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-cyan-600/20 rounded-full blur-[180px] animate-blob"></div>
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-purple-600/20 rounded-full blur-[180px] animate-blob animation-delay-2000"></div>
-        </div>
-        
-        <div className="bg-[#0f172a]/80 backdrop-blur-3xl p-8 md:p-10 rounded-[3rem] border border-white/10 w-full max-w-md shadow-[0_0_80px_rgba(0,0,0,0.8)] relative z-10">
-          
-          {authFailed && (
-             <div className="bg-red-500/20 border border-red-500/50 p-4 rounded-2xl mb-8 flex items-center gap-3">
-                <AlertTriangle className="text-red-500 shrink-0" size={24} />
-                <p className="text-red-200 text-[10px] md:text-xs font-bold leading-tight">⚠️ La sincronización está fallando. Asegúrate de habilitar el método de acceso "Anónimo" en Firebase Authentication.</p>
-             </div>
-          )}
-
-          <div className="text-center mb-10">
-            <div className="bg-gradient-to-br from-cyan-400 to-blue-600 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(6,182,212,0.4)] border border-cyan-300/30 rotate-3 hover:rotate-0 transition-transform duration-500">
-              <Zap className="text-white fill-white" size={48} />
-            </div>
-            <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none drop-shadow-md">Reto <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Actívate</span></h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase mt-3 tracking-[0.3em]">DAES BUAP • Promoción de la Cultura Física</p>
-          </div>
-          <div className="space-y-6">
-            <InputField label="Matrícula" type="text" value={loginForm.matricula} onChange={e => {setLoginError(""); setLoginForm({...loginForm, matricula: e.target.value})}} icon={Hash} placeholder="ID Institucional" colorClass="blue" />
-            <InputField label="Contraseña" type="password" value={loginForm.password} onChange={e => {setLoginError(""); setLoginForm({...loginForm, password: e.target.value})}} icon={Key} placeholder="••••" colorClass="blue" />
-            {loginError && <p className="text-[10px] font-bold text-red-400 uppercase bg-red-500/10 p-4 rounded-xl border border-red-500/30 text-center animate-in slide-in-from-top-1 shadow-[0_0_15px_rgba(239,68,68,0.2)]">{loginError}</p>}
-            <button onClick={handleLogin} className="w-full py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] border border-cyan-400/50 mt-4">Ingresar al Sistema</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#070913] text-slate-300 font-sans relative overflow-hidden flex flex-col selection:bg-cyan-500/30">
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes floatMedal {
-          0% { transform: translateY(0px) scale(1); }
-          50% { transform: translateY(-10px) scale(1.05); }
-          100% { transform: translateY(0px) scale(1); }
-        }
-        @keyframes shimmer {
-          0% { transform: translateX(-150%) skewX(-15deg); }
-          100% { transform: translateX(150%) skewX(-15deg); }
-        }
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(40px, -60px) scale(1.1); }
-          66% { transform: translate(-30px, 30px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob { animation: blob 15s infinite alternate; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-      `}</style>
-      
-      <ModalConfirmacion isOpen={deleteConfirm.show} onClose={() => setDeleteConfirm({ show: false, id: null, type: null, label: '' })} onConfirm={executeDelete} titulo="¿Confirmar Eliminación?" mensaje={`Estás a punto de borrar permanentemente a: ${deleteConfirm.label}.`} />
+    <div className="h-screen w-full bg-gray-50 font-sans text-gray-800 antialiased overflow-hidden flex">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[9999] px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 text-white transition-all transform duration-300
+          ${toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}>
+          {toast.type === 'success' ? <CheckCircle className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>}
+          <span>{toast.msg}</span>
+        </div>
+      )}
 
-      {/* Fondos fluidos adaptativos */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none opacity-40 z-0 overflow-hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-cyan-600/30 rounded-full blur-[150px] animate-blob"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-purple-600/30 rounded-full blur-[150px] animate-blob animation-delay-2000"></div>
-        <div className="absolute top-[30%] left-[30%] w-[40vw] h-[40vw] bg-emerald-600/20 rounded-full blur-[150px] animate-blob animation-delay-4000"></div>
-      </div>
+      {!currentUser ? (
+        <LoginView db={db} onLogin={(user) => { setCurrentUser(user); showToast(`Bienvenido ${user.name}`); }} />
+      ) : currentUser.role === 'admin' ? (
+        <AdminView db={db} saveDB={saveDB} onLogout={() => setCurrentUser(null)} showToast={showToast} />
+      ) : (
+        <StudentView db={db} saveDB={saveDB} user={currentUser} onLogout={() => setCurrentUser(null)} showToast={showToast} />
+      )}
+    </div>
+  );
+}
 
-      {/* MODAL INTERACTIVO DE MEDALLAS */}
-      {medalModal.show && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#030508]/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setMedalModal({ ...medalModal, show: false })}>
-          <div className="bg-gradient-to-b from-[#131a2a] to-[#0a0f1a] border border-white/10 p-8 rounded-[3rem] w-full max-w-[350px] shadow-[0_30px_60px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] relative overflow-hidden flex flex-col items-center text-center animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="absolute top-6 right-6 text-slate-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors"><X size={16}/></button>
+function LoginView({ db, onLogin }: { db: typeof DEFAULT_DB, onLogin: (u: Usuario) => void }) {
+  const [id, setId] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
 
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-transform duration-1000 shadow-inner ${medalModal.active ? `bg-gradient-to-br ${medalModal.themeClass} border-t border-l border-white/60 border-b border-r border-black/50 shadow-[inset_0_6px_10px_rgba(255,255,255,0.8),inset_0_-6px_10px_rgba(0,0,0,0.5)] scale-110` : 'bg-slate-800 border border-white/5 text-slate-600 shadow-[inset_0_4px_8px_rgba(0,0,0,0.5)]'}`}>
-              {medalModal.icon && React.createElement(medalModal.icon, {
-                 size: 36, 
-                 className: medalModal.active ? `${medalModal.colorClass === 'platinum' ? 'text-slate-800' : 'text-white'} drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]` : ""
-              })}
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = db.users.find(u => 
+      (u.id === id && u.password === password) || 
+      (u.id === 'ADMIN' && id.toUpperCase() === 'ADMIN' && password === 'RETO2024')
+    );
+    if (user) onLogin(user);
+    else alert("Credenciales incorrectas"); // Simplificado para componente, usa alert nativo o podrías pasar showToast
+  };
+
+  return (
+    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-[#003b5c] to-[#005587] absolute inset-0 z-50">
+      <div className="bg-white/95 backdrop-blur-md p-8 md:p-10 rounded-2xl shadow-2xl w-[90%] max-w-md text-center transform transition-all duration-500 hover:scale-[1.01]">
+        <div className="mb-6 flex justify-center">
+          <div className="w-24 h-24 bg-[#cda036] rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+            <Activity className="text-white w-12 h-12" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-bold text-[#003b5c] mb-2">RETO ACTÍVATE</h1>
+        <h2 className="text-xl text-gray-500 mb-8 font-light tracking-widest">ESTUDIANTIL</h2>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <User className="text-gray-400 w-5 h-5" />
             </div>
-
-            <h3 className={`text-2xl font-black uppercase tracking-tighter mb-2 ${medalModal.active ? 'text-white' : 'text-slate-400'}`}>{medalModal.title}</h3>
-            
-            <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full mb-6 ${medalModal.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800/50 text-slate-500 border border-slate-700/50'}`}>
-              {medalModal.active ? '✓ Desbloqueada' : '🔒 Bloqueada'}
-            </span>
-
-            <p className="text-[11px] font-bold text-slate-300 leading-relaxed mb-8 px-2">{medalModal.detail}</p>
-
-            <button onClick={() => setMedalModal({ ...medalModal, show: false })} className="w-full py-4 mt-2 bg-[#1a2235] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#232d46] transition-all border border-white/5 shadow-md flex items-center justify-center gap-2">
-              <ArrowLeft size={16}/> Regresar
+            <input type="text" required placeholder="Matrícula / ID Institucional" value={id} onChange={e => setId(e.target.value)}
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-[#003b5c] focus:border-[#003b5c] bg-white text-gray-900 placeholder-gray-400 focus:outline-none transition-colors" />
+          </div>
+          
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Lock className="text-gray-400 w-5 h-5" />
+            </div>
+            <input type={showPwd ? "text" : "password"} required placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)}
+              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-[#003b5c] focus:border-[#003b5c] bg-white text-gray-900 placeholder-gray-400 focus:outline-none transition-colors" />
+            <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-[#003b5c] focus:outline-none">
+              {showPwd ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
             </button>
           </div>
+          
+          <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#003b5c] hover:bg-[#005587] focus:outline-none transition-all uppercase tracking-wider">
+            Ingresar al Sistema
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdminView({ db, saveDB, onLogout, showToast }: any) {
+  const [tab, setTab] = useState<'usuarios' | 'historial' | 'contenido'>('usuarios');
+
+  // Formularios de admin
+  const [alta, setAlta] = useState({ nombre: '', matricula: '', password: '', unidad: '' });
+  const [cont, setCont] = useState({ mes: 'mes1', categoria: 'cultura_fisica', estado: 'activo', titulo: '', url: '' });
+
+  const handleAlta = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (db.users.find((u: any) => u.id === alta.matricula)) return showToast("Matrícula existente", "error");
+    const newDb = { ...db, users: [...db.users, { id: alta.matricula, name: alta.nombre, password: alta.password, unidad: alta.unidad, role: 'student' }] };
+    saveDB(newDb);
+    setAlta({ nombre: '', matricula: '', password: '', unidad: '' });
+    showToast("Alumno registrado exitosamente");
+  };
+
+  const handleBorrarUsuario = (id: string) => {
+    if(!window.confirm(`¿Estás seguro de que quieres borrar a este usuario (Matrícula: ${id})?`)) return;
+    const newDb = { ...db, users: db.users.filter((u:any) => u.id !== id) };
+    delete newDb.evaluations[id];
+    delete newDb.surveys[id];
+    saveDB(newDb);
+    showToast("Usuario borrado");
+  };
+
+  const handleAgregarContenido = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newDb = { ...db };
+    newDb.content[cont.mes][cont.categoria].push({ id: Date.now().toString(), titulo: cont.titulo, url: cont.url, estado: cont.estado });
+    saveDB(newDb);
+    setCont({ ...cont, titulo: '', url: '' });
+    showToast("Contenido agregado");
+  };
+
+  const toggleEncuesta = () => {
+    saveDB({ ...db, settings: { ...db.settings, surveyEnabled: !db.settings.surveyEnabled } });
+    showToast(db.settings.surveyEnabled ? "Encuesta deshabilitada" : "Encuesta habilitada", "success");
+  };
+
+  const simularCarga = () => {
+    showToast("Simulando carga masiva...");
+    setTimeout(() => showToast("Carga simulada completa", "success"), 1500);
+  };
+
+  const descargarHistorial = () => {
+    let csv = "Matricula,Nombre,Fase,Fecha,Sexo,Edad,Peso,Talla,Cintura,Cadera,IMC,Grasa_%,Grasa_Visceral,Musculo_%,P0,P1,P2,Ruffier_Index,Tren_Sup_Reps,Tren_Inf_Reps\n";
+    db.users.filter((u:any)=>u.role==='student').forEach((student:any) => {
+      if(db.evaluations[student.id]) {
+        Object.keys(db.evaluations[student.id]).forEach(fase => {
+          const d = db.evaluations[student.id][fase];
+          if(d) {
+            const res = analizarEvaluacionCompleta(d);
+            csv += `${student.id},${student.name},${fase},${d._fecha},${d.sexo},${d.edad},${d.peso},${d.talla},${d.cintura},${d.cadera},${res.imc.valor},${d.grasa},${d.visceral},${d.musculo},${d.p0},${d.p1},${d.p2},${res.ruffier.valor},${d.trensup},${d.treninf}\n`;
+          }
+        });
+      }
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "historial_global.csv";
+    a.click();
+  };
+
+  return (
+    <div className="flex w-full h-full">
+      {/* Sidebar Admin */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm flex-shrink-0">
+        <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
+          <div className="bg-[#003b5c] text-white p-2 rounded-lg"><Shield className="w-6 h-6"/></div>
+          <div><h2 className="text-lg font-bold text-gray-800">Panel Admin</h2><p className="text-xs text-gray-500">Gestión General</p></div>
         </div>
-      )}
-
-      {/* MODAL ADMIN PARA VER ENCUESTA */}
-      {adminSurveyView.show && (
-        <div className="fixed inset-0 z-[9999] bg-[#030509]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in overflow-y-auto pt-10 pb-20">
-          <div className="bg-[#0f172a] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
-            <button onClick={() => setAdminSurveyView({show: false, data: null, student: null})} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
-            <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md">
-               <Stethoscope size={32} className="text-indigo-400"/> 
-               Expediente Clínico
-            </h2>
-            <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-6 mt-[-15px]">Alumno: <span className="text-white">{adminSurveyView.student?.nombre || adminSurveyView.student?.matricula}</span></p>
-
-            <div className="space-y-6">
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud y Seguridad</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Condición Crónica" value={adminSurveyView.data?.condicionMedica} />
-                   <ReadOnlyField label="Dolor Crónico" value={adminSurveyView.data?.dolorCronico} />
-                   <ReadOnlyField label="Limitación Específica" value={adminSurveyView.data?.limitacionEspecifica} />
-                   <ReadOnlyField label="Medicamentos" value={adminSurveyView.data?.medicamentos} />
-                   <ReadOnlyField label="Defectos de postura" value={adminSurveyView.data?.defectosPostura} />
-                   <ReadOnlyField label="Antecedentes Familiares" value={adminSurveyView.data?.antecedentesFamiliares} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">II. Metas y Experiencia</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Objetivo principal" value={adminSurveyView.data?.objetivoPrincipal} />
-                   <ReadOnlyField label="Nivel actividad física" value={adminSurveyView.data?.nivelActividad} />
-                   <ReadOnlyField label="Deporte en el pasado" value={adminSurveyView.data?.deportePasado} />
-                   <ReadOnlyField label="Actividades atractivas" value={adminSurveyView.data?.actividadesAtractivas} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">III. Logística de Entrenamiento</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Tiempo disponible" value={adminSurveyView.data?.tiempoEntreno} />
-                   <ReadOnlyField label="Lugar de entreno" value={adminSurveyView.data?.lugarEntreno} />
-                   <ReadOnlyField label="Implementos en casa" value={adminSurveyView.data?.implementos} />
-                   <ReadOnlyField label="Cardio y Fuerza" value={adminSurveyView.data?.incluyeCardioFuerza} />
-                   <ReadOnlyField label="Mayor obstáculo" value={adminSurveyView.data?.obstaculoConstancia} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">IV. Bienestar y Estilo de Vida</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Calidad de sueño" value={adminSurveyView.data?.calidadSueno} />
-                   <ReadOnlyField label="Nivel de energía" value={adminSurveyView.data?.nivelEnergia} />
-                   <ReadOnlyField label="Tipo de motivación" value={adminSurveyView.data?.tipoMotivacion} />
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">V. Contacto Institucional</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <ReadOnlyField label="Correo Institucional" value={adminSurveyView.data?.correoInstitucional} />
-                   <ReadOnlyField label="Teléfono de contacto" value={adminSurveyView.data?.telefono} />
-                   <ReadOnlyField label="Horario de contacto" value={adminSurveyView.data?.horarioContacto} />
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                 <button onClick={() => setAdminSurveyView({show: false, data: null, student: null})} className="w-full py-6 bg-[#1a1d2d] hover:bg-[#24293d] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
-                   <ArrowLeft size={20}/> Regresar
-                 </button>
-                 <button onClick={descargarExpedienteWord} className="w-full py-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(16,185,129,0.4)] hover:brightness-110 transition-all border border-emerald-400/50 flex items-center justify-center gap-3">
-                   <FileText size={20}/> Descargar Word
-                 </button>
-               </div>
-            </div>
-          </div>
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <SidebarBtn active={tab === 'usuarios'} onClick={() => setTab('usuarios')} icon={<Users/>} label="Usuarios" />
+          <SidebarBtn active={tab === 'historial'} onClick={() => setTab('historial')} icon={<ChartIcon/>} label="Historial Global" />
+          <SidebarBtn active={tab === 'contenido'} onClick={() => setTab('contenido')} icon={<Image/>} label="Contenido" />
+        </nav>
+        <div className="p-4 border-t border-gray-200">
+          <button onClick={onLogout} className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+            <LogOut className="w-5 h-5"/> <span>Salir del Perfil</span>
+          </button>
         </div>
-      )}
+      </aside>
 
-      {/* MODAL PARA LLENAR ENCUESTA (ALUMNO) */}
-      {showSurvey && (
-        <div className="fixed inset-0 z-[9999] bg-[#030509]/95 backdrop-blur-xl flex flex-col items-center p-4 animate-in fade-in overflow-y-auto pt-10 pb-20">
-          <div className="bg-[#0f172a] w-full max-w-4xl rounded-[3rem] border border-white/10 p-8 md:p-12 relative shadow-[0_30px_60px_rgba(0,0,0,0.8)] my-auto mt-10 mb-10">
-            <button onClick={() => setShowSurvey(false)} className="absolute top-6 right-6 text-slate-500 bg-white/5 p-3 rounded-full hover:bg-white/10 transition-colors"><X size={20}/></button>
-            <h2 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-3 drop-shadow-md"><Stethoscope size={32} className="text-indigo-400"/> Expediente Clínico (Completo)</h2>
-            
-            <div className="space-y-6">
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">I. Salud Física y Clínica</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Condición Crónica" colorClass="indigo" value={encuesta.condicionMedica} onChange={e => setEncuesta({...encuesta, condicionMedica: e.target.value})} placeholder="Ej. Asma, Diabetes, Ninguna"/>
-                   <InputField label="Dolor Crónico/Lesiones" colorClass="indigo" value={encuesta.dolorCronico} onChange={e => setEncuesta({...encuesta, dolorCronico: e.target.value})} placeholder="Ej. Dolor de rodilla, Ninguno"/>
-                   <InputField label="Limitación Específica" colorClass="indigo" value={encuesta.limitacionEspecifica} onChange={e => setEncuesta({...encuesta, limitacionEspecifica: e.target.value})} placeholder="Para realizar esfuerzo..."/>
-                   <InputField label="Medicamentos actuales" colorClass="indigo" value={encuesta.medicamentos} onChange={e => setEncuesta({...encuesta, medicamentos: e.target.value})} placeholder="Ej. Ninguno"/>
-                   <InputField label="Defectos de postura" colorClass="indigo" value={encuesta.defectosPostura} onChange={e => setEncuesta({...encuesta, defectosPostura: e.target.value})} placeholder="Ej. Escoliosis, pie plano..."/>
-                   <InputField label="Antecedentes Familiares" colorClass="indigo" value={encuesta.antecedentesFamiliares} onChange={e => setEncuesta({...encuesta, antecedentesFamiliares: e.target.value})} placeholder="Ej. Hipertensión..."/>
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">II. Objetivos y Actividad</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Objetivo principal" colorClass="rose" value={encuesta.objetivoPrincipal} onChange={e => setEncuesta({...encuesta, objetivoPrincipal: e.target.value})} placeholder="Bajar peso, ganar fuerza..."/>
-                   <InputField label="Nivel actividad física" colorClass="rose" value={encuesta.nivelActividad} onChange={e => setEncuesta({...encuesta, nivelActividad: e.target.value})} placeholder="Sedentario, activo..."/>
-                   <InputField label="Deporte en el pasado" colorClass="rose" value={encuesta.deportePasado} onChange={e => setEncuesta({...encuesta, deportePasado: e.target.value})} placeholder="Ej. Futbol, Natación..."/>
-                   <InputField label="Actividades atractivas" colorClass="rose" value={encuesta.actividadesAtractivas} onChange={e => setEncuesta({...encuesta, actividadesAtractivas: e.target.value})} placeholder="Ej. Correr, Yoga..."/>
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">III. Logística de Entrenamiento</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Tiempo disponible" colorClass="orange" value={encuesta.tiempoEntreno} onChange={e => setEncuesta({...encuesta, tiempoEntreno: e.target.value})} placeholder="Ej. 1 hr diaria..."/>
-                   <InputField label="Lugar de entreno" colorClass="orange" value={encuesta.lugarEntreno} onChange={e => setEncuesta({...encuesta, lugarEntreno: e.target.value})} placeholder="Casa, gimnasio..."/>
-                   <InputField label="Implementos en casa" colorClass="orange" value={encuesta.implementos} onChange={e => setEncuesta({...encuesta, implementos: e.target.value})} placeholder="Ej. Mancuernas, ligas..."/>
-                   <InputField label="Cardio y Fuerza" colorClass="orange" value={encuesta.incluyeCardioFuerza} onChange={e => setEncuesta({...encuesta, incluyeCardioFuerza: e.target.value})} placeholder="¿Te gustan ambos?"/>
-                   <InputField label="Mayor obstáculo" colorClass="orange" value={encuesta.obstaculoConstancia} onChange={e => setEncuesta({...encuesta, obstaculoConstancia: e.target.value})} placeholder="Falta de tiempo, pereza..."/>
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">IV. Bienestar y Estilo de Vida</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Calidad de sueño" colorClass="cyan" value={encuesta.calidadSueno} onChange={e => setEncuesta({...encuesta, calidadSueno: e.target.value})} placeholder="Mala, buena, 8 hrs..."/>
-                   <InputField label="Nivel de energía" colorClass="cyan" value={encuesta.nivelEnergia} onChange={e => setEncuesta({...encuesta, nivelEnergia: e.target.value})} placeholder="Alto, bajo..."/>
-                   <InputField label="Tipo de motivación" colorClass="cyan" value={encuesta.tipoMotivacion} onChange={e => setEncuesta({...encuesta, tipoMotivacion: e.target.value})} placeholder="Salud, estética..."/>
-                 </div>
-               </div>
-
-               <div className="flex flex-col gap-4 bg-[#131620] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-inner">
-                 <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-2">V. Contacto Institucional</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <InputField label="Correo Institucional" icon={Mail} colorClass="emerald" value={encuesta.correoInstitucional} onChange={e => setEncuesta({...encuesta, correoInstitucional: e.target.value})} placeholder="alumno@alumno.buap.mx"/>
-                   <InputField label="Teléfono de contacto" icon={Phone} colorClass="emerald" value={encuesta.telefono} onChange={e => setEncuesta({...encuesta, telefono: e.target.value})} placeholder="222..."/>
-                   <InputField label="Horario de contacto" icon={Clock} colorClass="emerald" value={encuesta.horarioContacto} onChange={e => setEncuesta({...encuesta, horarioContacto: e.target.value})} placeholder="Mañana / Tarde"/>
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                 <button onClick={() => setShowSurvey(false)} className="w-full py-5 md:py-6 bg-[#1a1d2d] hover:bg-[#24293d] text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-lg transition-all border border-white/10 flex items-center justify-center gap-3">
-                   <ArrowLeft size={20}/> Cerrar Encuesta
-                 </button>
-                 <button onClick={saveSurvey} className="w-full py-5 md:py-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(99,102,241,0.4)] hover:brightness-110 transition-all border border-indigo-400/50 flex items-center justify-center gap-3">
-                   <Save size={20}/> Enviar Expediente
-                 </button>
-               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONTENIDO PRINCIPAL DE PESTAÑAS (ADMIN/ALUMNO) */}
-      <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10 flex-1 flex flex-col">
-        <header className="mb-12 flex flex-col lg:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-6">
-            <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-5 rounded-[2rem] shadow-[0_0_40px_rgba(6,182,212,0.4)] border border-cyan-400/30">
-               <Zap className="text-white fill-white" size={28} />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-md">Reto <span className="text-cyan-400">Actívate</span></h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] opacity-90 mt-2">DAES BUAP • {userData.nombre}</p>
-            </div>
-          </div>
-          <nav className="flex bg-[#0f172a]/80 backdrop-blur-xl p-1.5 rounded-3xl border border-white/10 gap-1 shadow-2xl">
-            {userData.role === 'admin' ? (
-              <>
-                <button onClick={() => setActiveTab('usuarios')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'usuarios' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Usuarios</button>
-                <button onClick={() => setActiveTab('historial')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'historial' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Historial</button>
-                <button onClick={() => setActiveTab('contenidos')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'contenidos' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Videos</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setActiveTab('registro')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'registro' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Registro</button>
-                <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'biblioteca' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Contenido</button>
-                <button onClick={() => setActiveTab('evolución')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${activeTab === 'evolución' ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'text-slate-400 hover:text-white'}`}>Evolución</button>
-              </>
-            )}
-            <button onClick={() => userData.role === 'student' && userData.surveyEnabled && setShowSurvey(true)} className={`p-3 rounded-xl transition-all ${userData?.surveyEnabled ? 'text-indigo-400 animate-pulse hover:bg-indigo-500/20' : 'text-slate-600 grayscale hidden'}`}><Stethoscope size={18} /></button>
-            <button onClick={handleLogout} className="p-3 text-red-400 ml-2 hover:bg-red-500/20 hover:text-red-300 rounded-xl transition-all"><LogOut size={18}/></button>
-          </nav>
+      {/* Admin Content */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
+        <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center flex-shrink-0">
+          <h1 className="text-2xl font-semibold text-gray-800">
+            {tab === 'usuarios' ? 'Gestión de Usuarios' : tab === 'historial' ? 'Historial Global' : 'Gestor de Contenidos'}
+          </h1>
+          <span className="text-sm text-gray-500">Sesión: <strong className="text-[#003b5c]">ADMIN</strong></span>
         </header>
 
-        <main className="flex-1 w-full pb-20">
+        <div className="flex-1 overflow-y-auto p-8 relative">
           
-          {/* VISTA ADMIN - USUARIOS */}
-          {userData.role === 'admin' && activeTab === 'usuarios' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in">
-              <div className="lg:col-span-5 space-y-8">
-                <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] h-fit">
-                  <h2 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-8 flex items-center gap-3"><UserPlus size={18} /> Alta Estudiante</h2>
-                  <div className="space-y-4">
-                    <InputField label="Nombre" value={nuevoEstudiante.nombre} onChange={e => setNuevoEstudiante({...nuevoEstudiante, nombre: e.target.value})} icon={User} placeholder="Nombre completo" type="text" colorClass="blue"/>
-                    <InputField label="Matrícula" value={nuevoEstudiante.matricula} onChange={e => setNuevoEstudiante({...nuevoEstudiante, matricula: e.target.value})} icon={Hash} placeholder="ID" type="text" colorClass="blue"/>
-                    <InputField label="Contraseña" value={nuevoEstudiante.password} onChange={e => setNuevoEstudiante({...nuevoEstudiante, password: e.target.value})} icon={Lock} placeholder="Clave" type="text" colorClass="blue"/>
-                    <SelectField label="Unidad Académica" value={nuevoEstudiante.unidadAcademica} onChange={e => setNuevoEstudiante({...nuevoEstudiante, unidadAcademica: e.target.value})} options={UNIDADES_ACADEMICAS} colorClass="blue" />
-                    <button onClick={registrarUsuario} className="w-full py-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:brightness-110 transition-all mt-6 border border-cyan-400/30">Registrar Alumno</button>
-                  </div>
+          {/* TAB: USUARIOS */}
+          {tab === 'usuarios' && (
+            <div className="space-y-6 max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Alta de Estudiante (Manual)</h3>
+                  <form onSubmit={handleAlta} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" required placeholder="Nombre Completo" value={alta.nombre} onChange={e=>setAlta({...alta, nombre: e.target.value})} className="p-2 border rounded focus:ring-[#003b5c] focus:border-[#003b5c]" />
+                    <input type="text" required placeholder="Matrícula" value={alta.matricula} onChange={e=>setAlta({...alta, matricula: e.target.value})} className="p-2 border rounded focus:ring-[#003b5c]" />
+                    <input type="text" required placeholder="Contraseña" value={alta.password} onChange={e=>setAlta({...alta, password: e.target.value})} className="p-2 border rounded focus:ring-[#003b5c]" />
+                    <select required value={alta.unidad} onChange={e=>setAlta({...alta, unidad: e.target.value})} className="p-2 border rounded focus:ring-[#003b5c]">
+                      <option value="">Seleccione Unidad...</option>
+                      <option value="Dirección de Atención Estudiantil">Dirección de Atención Estudiantil</option>
+                      <option value="Facultad de Medicina">Facultad de Medicina</option>
+                      <option value="Facultad de Computación">Facultad de Computación</option>
+                      <option value="Otra">Otra Unidad Académica...</option>
+                    </select>
+                    <div className="md:col-span-2 flex justify-end">
+                      <button type="submit" className="bg-[#003b5c] text-white px-6 py-2 rounded-lg hover:bg-[#005587]">Registrar</button>
+                    </div>
+                  </form>
                 </div>
 
-                <div className="bg-[#0f172a]/90 p-8 rounded-[3rem] border border-emerald-500/30 backdrop-blur-2xl shadow-[0_0_50px_rgba(16,185,129,0.1)] h-fit relative overflow-hidden">
-                  <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-emerald-500/20 blur-[50px] rounded-full"></div>
-                  <h2 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10"><FileSpreadsheet size={18} /> Importar Excel</h2>
-                  <div className="space-y-6 relative z-10">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase leading-relaxed tracking-tight">Carga masiva. Columnas requeridas: <span className="text-emerald-400">Nombre, Matricula, Password, Unidad Academica</span>.</p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button onClick={downloadTemplate} className="flex items-center justify-center gap-2 py-4 bg-[#1a1d2d] text-white border border-white/10 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-[#24293d] transition-all">
-                         <Download size={14} /> Plantilla
-                      </button>
-                      <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest hover:brightness-110 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all border border-emerald-400/50">
-                         {isImporting ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />} {isImporting ? 'Subiendo...' : 'Subir Archivo'}
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Carga Masiva</h3>
+                    <div className="flex flex-col space-y-3">
+                      <button className="text-[#003b5c] text-sm flex items-center hover:underline"><Download className="w-4 h-4 mr-1"/> Descargar Plantilla</button>
+                      <label className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50">
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2"/>
+                        <span className="text-sm text-gray-600">Subir CSV</span>
+                        <input type="file" className="hidden" accept=".csv" onChange={simularCarga} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Encuesta Clínica</h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Habilitar Expediente</span>
+                      <button onClick={toggleEncuesta} className={`w-12 h-6 rounded-full transition-colors relative ${db.settings.surveyEnabled ? 'bg-green-500' : 'bg-gray-400'}`}>
+                        <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${db.settings.surveyEnabled ? 'translate-x-6' : ''}`}></div>
                       </button>
                     </div>
-                    <input type="file" ref={fileInputRef} onChange={handleExcelUpload} accept=".xlsx, .xls" className="hidden" />
                   </div>
                 </div>
               </div>
 
-              <div className="lg:col-span-7 bg-[#0f172a]/90 p-8 rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] max-h-[850px] overflow-y-auto">
-                <h2 className="text-xs font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3"><Users size={18} /> Directorio Activo ({usuariosLista.length})</h2>
-                <div className="space-y-3">
-                  {usuariosLista.length === 0 ? <p className="text-slate-500 text-center py-20 text-[10px] font-black uppercase italic tracking-widest">Sin alumnos registrados</p> : 
-                  usuariosLista.map(u => (
-                    <div key={u.id} className="bg-[#1a1d2d]/50 p-5 rounded-2xl border border-white/5 flex justify-between items-center group transition-all hover:border-cyan-500/40 hover:bg-[#1a1d2d]">
-                      <div>
-                          <p className="text-sm font-black text-white italic">{String(u.nombre || 'Sin Nombre')}</p>
-                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter mt-1">{String(u.matricula)} • {String(u.unidadAcademica)}</p>
-                      </div>
-                      <div className="flex items-center gap-6">
-                          <div className="text-right"><p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Clave</p><p className="text-cyan-400 font-black text-sm tracking-widest">{String(u.password)}</p></div>
-                          <div className="flex items-center gap-3">
-                             <button onClick={() => toggleSurveyAccess(u.matricula, u.surveyEnabled)} className={`w-10 h-5 rounded-full relative ${u.surveyEnabled ? 'bg-indigo-500' : 'bg-slate-800'}`}>
-                               <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${u.surveyEnabled ? 'right-1' : 'left-1'}`} />
-                             </button>
-                             
-                             <button onClick={() => {
-                                 if (u.encuestaCompletada && u.datosEncuesta) {
-                                   setAdminSurveyView({ show: true, data: u.datosEncuesta, student: u });
-                                 } else {
-                                   alert("Este estudiante aún no ha llenado su expediente clínico.");
-                                 }
-                             }} className={`p-2 rounded-xl transition-all ${u.encuestaCompletada ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-slate-600 grayscale cursor-not-allowed hover:bg-white/5'}`} title="Ver Expediente Médico">
-                               <Stethoscope size={16}/>
-                             </button>
-
-                             <button onClick={() => triggerDelete(u.matricula, 'user', u.nombre)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
-                          </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VISTA ADMIN - HISTORIAL */}
-          {userData.role === 'admin' && activeTab === 'historial' && (
-            <div className="bg-[#0f172a]/80 rounded-[3rem] border border-white/5 overflow-hidden animate-in fade-in backdrop-blur-xl shadow-2xl">
-               <div className="p-8 border-b border-white/5 flex justify-between items-center bg-black/20">
-                  <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">Historial Global</h2>
-                  <button onClick={exportarCSV} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.4)] border border-cyan-400/50"><Download size={16}/> Exportar CSV</button>
-               </div>
-               <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-[#1a1d2d] text-[9px] font-black uppercase text-slate-400 tracking-widest"><tr><th className="px-8 py-5">Fase/Estudiante</th><th className="px-8 py-5 text-center">Composición Física</th><th className="px-8 py-5 text-center">R / S / I</th><th className="px-8 py-5 text-right">Control</th></tr></thead>
-                    <tbody className="divide-y divide-white/5">
-                      {historial.length === 0 ? <tr><td colSpan="4" className="py-20 text-center text-[10px] font-black text-slate-500 uppercase">Sin evaluaciones registradas</td></tr> :
-                      historial.map(h => (
-                        <tr key={h.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-8 py-5 text-sm font-black text-white">
-                              <span className="italic">{String(h.nombre || 'S/N')}</span>
-                              <br/>
-                              <span className="text-[9px] text-cyan-400 uppercase font-bold tracking-tight">{String(h.etapa)}</span> <span className="text-[9px] text-slate-500">• {String(h.fecha)}</span>
-                          </td>
-                          <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter text-slate-400">GC: <span className="text-pink-400">{h.grasaCorporal||'-'}</span> / GV: <span className="text-orange-400">{h.grasaVisceral||'-'}</span> / ME: <span className="text-cyan-400">{h.musculoEsqueletico||'-'}</span></td>
-                          <td className="px-8 py-5 text-center text-[10px] font-black tracking-tighter">R: <span className="text-emerald-400">{String(h.ruffierVal)}</span> / S: <span className="text-blue-400">{String(h.trenSuperior)}</span> / I: <span className="text-purple-400">{String(h.trenInferior)}</span></td>
-                          <td className="px-8 py-5 text-right">
-                              <button onClick={() => triggerDelete(h.id, 'evaluation', `${h.nombre} (${h.etapa})`)} className="p-3 text-slate-500 hover:text-red-500 transition-colors">
-                                  <Trash2 size={16}/>
-                              </button>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-4 border-b bg-gray-50"><h3 className="font-semibold text-gray-700">Directorio Activo</h3></div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-100 text-gray-600 uppercase">
+                      <tr><th className="p-3">Matrícula</th><th className="p-3">Nombre</th><th className="p-3">Unidad</th><th className="p-3">Clave</th><th className="p-3 text-center">Acción</th></tr>
+                    </thead>
+                    <tbody>
+                      {db.users.filter((u:any)=>u.role==='student').map((s:any) => (
+                        <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="p-3 font-medium">{s.id}</td><td className="p-3">{s.name}</td><td className="p-3 text-xs">{s.unidad}</td><td className="p-3 font-mono">{s.password}</td>
+                          <td className="p-3 text-center">
+                            <button onClick={()=>handleBorrarUsuario(s.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-5 h-5 mx-auto"/></button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-               </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* VISTA ADMIN - CONTENIDOS */}
-          {userData.role === 'admin' && activeTab === 'contenidos' && (
-            <div className="flex flex-col gap-6 animate-in fade-in">
-              <div className="bg-[#0f172a]/90 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter mb-8 flex items-center gap-3"><Video className="text-cyan-400" size={24}/> Bóveda Youtube</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {MESES.map(m => (
-                    <div key={m} className="bg-[#131a2a]/60 p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
-                      <h4 className="text-[12px] font-black text-cyan-400 uppercase tracking-widest border-b border-white/10 pb-3">{m}</h4>
-                      {CATEGORIAS_CONTENIDO.map(c => {
-                        const key = `${m}-${c}`;
-                        const isUn = configGlobal.desbloqueos?.[key];
-                        const videosList = getNormalizedVideos(configGlobal.videos, m, c);
+          {/* TAB: HISTORIAL */}
+          {tab === 'historial' && (
+            <div className="space-y-6 max-w-6xl mx-auto">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                 <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-700">Evaluaciones Globales</h3>
+                  <button onClick={descargarHistorial} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 flex items-center">
+                    <Download className="w-4 h-4 mr-2"/> Exportar Analítico
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                      <tr><th className="p-3">Fase</th><th className="p-3">Estudiante</th><th className="p-3">Composición</th><th className="p-3">Rendimiento</th><th className="p-3">Acción</th></tr>
+                    </thead>
+                    <tbody>
+                      {db.users.filter((u:any)=>u.role==='student').map((student:any) => {
+                        if(!db.evaluations[student.id]) return null;
+                        return Object.keys(db.evaluations[student.id]).map(fase => {
+                          const d = db.evaluations[student.id][fase];
+                          const res = analizarEvaluacionCompleta(d);
+                          return (
+                            <tr key={`${student.id}-${fase}`} className="border-b border-gray-50 hover:bg-gray-50">
+                              <td className="p-3 uppercase text-xs font-bold">{fase}</td>
+                              <td className="p-3">{student.name} <span className="block text-xs text-gray-400">{student.id}</span></td>
+                              <td className="p-3 text-xs">IMC: {res.imc.valor} | Grasa: {d.grasa}% | Musc: {d.musculo}%</td>
+                              <td className="p-3 text-xs">Ruffier: {res.ruffier.clasificacion} | T.Sup: {d.trensup} | T.Inf: {d.treninf}</td>
+                              <td className="p-3">
+                                <button onClick={() => {
+                                  if(window.confirm("Borrar historial de esta fase?")) {
+                                    const newDb = {...db}; delete newDb.evaluations[student.id][fase]; saveDB(newDb);
+                                  }
+                                }} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
-                        return (
-                          <div key={c} className="bg-[#0a0f1a] p-5 rounded-2xl border border-white/5">
-                            <div className="flex justify-between items-center mb-4">
-                              <span className="text-[10px] font-black uppercase text-white">{c}</span>
-                              <button onClick={() => toggleUnlock(m, c)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isUn ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/50' : 'bg-[#1a2235] text-slate-400 border border-transparent'}`}>
-                                {isUn ? 'Abierto' : 'Cerrado'}
-                              </button>
-                            </div>
-                            <div className="space-y-2 mb-4">
-                              {videosList.map((vidUrl, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-[#131620] p-3 rounded-xl border border-white/5 group">
-                                  <p className="text-[9px] text-slate-400 truncate w-40"><span className="text-cyan-400 font-bold mr-1">V{idx+1}:</span> {vidUrl}</p>
-                                  <button onClick={() => removeVideoLink(m, c, idx)} className="text-slate-600 hover:text-red-400 transition-colors"><X size={14}/></button>
-                                </div>
+          {/* TAB: CONTENIDO */}
+          {tab === 'contenido' && (
+             <div className="space-y-6 max-w-6xl mx-auto">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Gestor de Contenidos</h3>
+                  <form onSubmit={handleAgregarContenido} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <select value={cont.mes} onChange={e=>setCont({...cont, mes: e.target.value})} className="p-2 border rounded"><option value="mes1">Mes 1</option><option value="mes2">Mes 2</option><option value="mes3">Mes 3</option></select>
+                        <select value={cont.categoria} onChange={e=>setCont({...cont, categoria: e.target.value})} className="p-2 border rounded"><option value="cultura_fisica">Cultura Física</option><option value="nutricion">Nutrición</option></select>
+                        <select value={cont.estado} onChange={e=>setCont({...cont, estado: e.target.value})} className="p-2 border rounded"><option value="activo">Visible</option><option value="oculto">Oculto</option></select>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" required placeholder="Título" value={cont.titulo} onChange={e=>setCont({...cont, titulo: e.target.value})} className="p-2 border rounded" />
+                        <input type="url" required placeholder="URL (Enlace)" value={cont.url} onChange={e=>setCont({...cont, url: e.target.value})} className="p-2 border rounded" />
+                    </div>
+                    <div className="flex justify-end"><button type="submit" className="bg-[#003b5c] text-white px-6 py-2 rounded">Añadir</button></div>
+                  </form>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                 <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Publicado</h3>
+                 {['mes1','mes2','mes3'].map(mes => (
+                    <div key={mes} className="mb-4">
+                      <h4 className="font-bold uppercase bg-gray-100 p-2 rounded text-sm">{mes}</h4>
+                      {['cultura_fisica', 'nutricion'].map(cat => {
+                        const items = db.content[mes as keyof typeof db.content][cat as 'cultura_fisica'|'nutricion'];
+                        return items.length > 0 ? (
+                          <div key={cat} className="ml-4 mt-2">
+                            <h5 className="text-xs font-semibold text-gray-500 uppercase">{cat.replace('_', ' ')}</h5>
+                            <ul className="space-y-2 mt-1">
+                              {items.map((it:any) => (
+                                <li key={it.id} className="flex justify-between items-center bg-gray-50 p-2 rounded border text-sm">
+                                  <a href={it.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center">
+                                    {it.estado === 'activo' ? <Eye className="w-4 h-4 text-green-500 mr-2"/> : <EyeOff className="w-4 h-4 text-gray-400 mr-2"/>}
+                                    {it.titulo}
+                                  </a>
+                                  <div className="space-x-2">
+                                    <button onClick={()=>{
+                                      const newDb = {...db}; 
+                                      const target = newDb.content[mes as keyof typeof db.content][cat as 'cultura_fisica'|'nutricion'].find((x:any)=>x.id===it.id);
+                                      if(target) target.estado = target.estado === 'activo' ? 'oculto' : 'activo';
+                                      saveDB(newDb);
+                                    }} className="text-xs bg-gray-200 px-2 py-1 rounded">Alternar</button>
+                                    <button onClick={()=>{
+                                      const newDb = {...db}; 
+                                      newDb.content[mes as keyof typeof db.content][cat as 'cultura_fisica'|'nutricion'] = newDb.content[mes as keyof typeof db.content][cat as 'cultura_fisica'|'nutricion'].filter((x:any)=>x.id!==it.id);
+                                      saveDB(newDb);
+                                    }} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                                  </div>
+                                </li>
                               ))}
-                            </div>
-                            <div className="flex gap-2">
-                              <input type="text" placeholder="URL YouTube" value={videoInputs[key] || ""} onChange={e => setVideoInputs({...videoInputs, [key]: e.target.value})} className="w-full bg-[#131620] text-[10px] font-bold text-white px-4 py-3 rounded-xl outline-none border border-white/5 focus:border-cyan-500/50 transition-colors" />
-                              <button onClick={() => addVideoLink(m, c)} className="bg-cyan-600 text-white px-4 rounded-xl hover:bg-cyan-500 transition-colors shadow-lg"><PlusCircle size={16}/></button>
-                            </div>
+                            </ul>
                           </div>
-                        );
+                        ) : null;
                       })}
                     </div>
-                  ))}
-                </div>
+                 ))}
               </div>
             </div>
           )}
 
-          {/* VISTA ESTUDIANTE - BIBLIOTECA */}
-          {userData.role === 'student' && activeTab === 'biblioteca' && (
-            <div className="flex flex-col gap-6 animate-in fade-in pb-10">
-              <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-8 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 shadow-xl">
-                <h2 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-4 flex items-center gap-3"><Video className="text-cyan-400" size={28}/> Contenido Interactivo</h2>
-                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest mb-10">Visualiza todos los videos de cada categoría para desbloquear las medallas correspondientes en tu vitrina de evolución.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {MESES.map(m => (
-                    <div key={`vid-${m}`} className="bg-[#131620]/60 p-6 md:p-8 rounded-[2.5rem] border border-white/5 space-y-6 shadow-inner">
-                      <h4 className="text-[12px] md:text-sm font-black text-white uppercase tracking-[0.2em] italic border-b border-white/10 pb-3">{m}</h4>
-                      {CATEGORIAS_CONTENIDO.map(c => {
-                        const key = `${m}-${c}`;
-                        const isLocked = !configGlobal.desbloqueos?.[key];
-                        const videosList = getNormalizedVideos(configGlobal.videos, m, c);
-                        const isCatComplete = hasCompletedCategory(m, c);
-                        
-                        return (
-                          <div key={c} className={`p-5 md:p-6 rounded-[2rem] border flex flex-col gap-5 transition-all ${isLocked ? 'bg-[#0a0f1a] border-white/5 grayscale opacity-60' : isCatComplete ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-[#1e2336] border-white/10 shadow-lg'}`}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] md:text-xs font-black uppercase text-white flex items-center gap-2">
-                                {c === 'Nutrición' ? <Apple size={16} className="text-rose-400"/> : <Zap size={16} className="text-yellow-400"/>} {c}
-                              </span>
-                              {isCatComplete && <CheckCircle2 size={16} className="text-emerald-400"/>}
-                            </div>
-                            {isLocked ? (
-                              <div className="py-6 text-center text-slate-600 bg-black/30 rounded-xl"><Lock size={24} className="mx-auto mb-2"/><p className="text-[9px] font-black uppercase tracking-widest">Bloqueado</p></div>
-                            ) : videosList.length === 0 ? (
-                              <p className="text-[9px] text-center text-slate-500 py-4 uppercase font-black tracking-widest">Pronto...</p>
-                            ) : (
-                              <div className="flex flex-col gap-3">
-                                {videosList.map((vidUrl, idx) => {
-                                  const isSeen = userData.videosVistos?.includes(`${key}-${idx}`) || (idx === 0 && userData.videosVistos?.includes(key));
-                                  return (
-                                    <button key={idx} onClick={() => verVideo(m, c, idx, vidUrl)} className={`w-full py-4 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between border transition-all hover:-translate-y-0.5 ${isSeen ? 'bg-[#0f172a] text-emerald-400 border-emerald-500/30' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400/50 shadow-md'}`}>
-                                      <div className="flex items-center gap-3">
-                                        <PlayCircle size={16} className={isSeen ? "text-emerald-500" : ""}/> 
-                                        <span>Video {idx + 1}</span>
-                                      </div>
-                                      {isSeen ? <CheckCircle2 size={14}/> : <ChevronRight size={14} className="opacity-50"/>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// Simple helper component for Admin Sidebar
+function SidebarBtn({ active, onClick, icon, label }: any) {
+  return (
+    <button onClick={onClick} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${active ? 'text-[#003b5c] bg-blue-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+      <span className="w-5">{icon}</span> <span>{label}</span>
+    </button>
+  );
+}
+
+function StudentView({ db, saveDB, user, onLogout, showToast }: any) {
+  const [tab, setTab] = useState<'registro' | 'contenido' | 'evolucion'>('registro');
+  const [fase, setFase] = useState('inicial');
+  const [showSurvey, setShowSurvey] = useState(false);
+
+  return (
+    <div className="flex w-full h-full relative">
+      {/* Sidebar Student */}
+      <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm flex-shrink-0 z-10">
+        <div className="p-4 md:p-6 flex items-center justify-center md:justify-start space-x-3 border-b border-gray-100">
+          <div className="bg-[#cda036] text-white p-2 rounded-lg"><UserCheck className="w-6 h-6"/></div>
+          <div className="hidden md:block overflow-hidden">
+            <h2 className="text-lg font-bold text-gray-800 truncate">{user.name}</h2>
+            <p className="text-xs text-gray-500 truncate">{user.id}</p>
+          </div>
+        </div>
+        <nav className="flex-1 p-2 md:p-4 space-y-2 overflow-y-auto">
+          <SidebarBtn active={tab === 'registro'} onClick={() => setTab('registro')} icon={<ClipboardList/>} label="Registro" />
+          <SidebarBtn active={tab === 'contenido'} onClick={() => setTab('contenido')} icon={<PlayCircle/>} label="Contenido" />
+          <SidebarBtn active={tab === 'evolucion'} onClick={() => setTab('evolucion')} icon={<PieChart/>} label="Evolución" />
+          
+          {db.settings.surveyEnabled && (
+            <div className="pt-4 border-t border-gray-100 mt-4">
+              <button onClick={() => setShowSurvey(true)} className="w-full flex items-center justify-center md:justify-start space-x-3 px-4 py-3 text-sm font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                 <Stethoscope className="w-5 h-5 animate-pulse"/> <span className="hidden md:inline">Expediente Clínico</span>
+              </button>
             </div>
           )}
+        </nav>
+        <div className="p-2 md:p-4 border-t border-gray-200">
+          <button onClick={onLogout} className="w-full flex items-center justify-center md:justify-start space-x-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
+            <LogOut className="w-5 h-5"/> <span className="hidden md:inline">Salir</span>
+          </button>
+        </div>
+      </aside>
 
-          {/* VISTA ESTUDIANTE - REGISTRO */}
-          {userData.role === 'student' && activeTab === 'registro' && (
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 animate-in fade-in">
-              <div className="xl:col-span-7 space-y-8 pb-20">
-                <div className="bg-[#0f172a]/90 p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl shadow-xl">
-                  <h3 className="text-lg font-black text-white uppercase italic mb-4 flex items-center gap-2 tracking-tighter"><Calendar className="text-blue-500" size={20}/> Fase a Reportar</h3>
-                  <div className="flex flex-wrap gap-2 md:gap-3">
-                    {mesesEtapas.map(m => {
-                      const isB = historial.some(h => h.etapa === m && h.matricula === userData.matricula);
-                      const isSelected = datosRegistro.etapa === m;
-                      let btnStyle = 'bg-[#131620] text-slate-400 hover:bg-[#24293d] border-2 border-white/5 hover:text-white';
-                      if (isSelected) btnStyle = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] border-b-4 border-blue-700';
-                      else if (isB) btnStyle = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30';
-                      
-                      return (
-                        <button 
-                          key={m} 
-                          onClick={() => handlePhaseClick(m)} 
-                          className={`flex-1 min-w-[80px] md:min-w-[100px] py-4 rounded-xl text-[9px] md:text-[10px] font-black uppercase transition-all ${btnStyle}`}
-                        >
-                          {isB && !isSelected && <Eye size={12} className="inline mr-1"/>} 
-                          {!isB && !isSelected && <Calendar size={12} className="inline mr-1"/>} 
-                          {m}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
+        <header className="bg-white border-b border-gray-200 px-4 md:px-8 py-4 flex justify-between items-center flex-shrink-0">
+          <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
+            {tab === 'registro' ? 'Registro de Evaluación' : tab === 'contenido' ? 'Recursos Educativos' : 'Mi Evolución y Logros'}
+          </h1>
+        </header>
 
-                <div className="bg-[#0f172a]/90 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-white/5 backdrop-blur-2xl space-y-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-40 h-40 bg-yellow-500/10 blur-[60px] rounded-full pointer-events-none"></div>
-                   <div className="absolute bottom-0 left-0 w-40 h-40 bg-cyan-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative no-scrollbar">
+          {tab === 'registro' && <StudentRegistro db={db} saveDB={saveDB} user={user} fase={fase} setFase={setFase} showToast={showToast}/>}
+          {tab === 'contenido' && <StudentContenido db={db} showToast={showToast}/>}
+          {tab === 'evolucion' && <StudentEvolucion db={db} user={user}/>}
+        </div>
+      </main>
 
-                   {(() => {
-                     const isViewingMode = historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula);
-                     return (
-                       <>
-                         <div className="relative z-10 border-b border-[#24293d] pb-8">
-                           <h2 className="text-xs md:text-sm font-black text-indigo-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><User size={20}/> Perfil Biológico</h2>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                             <SelectField label="Sexo Biológico" value={datosRegistro.sexo} onChange={e => setDatosRegistro({...datosRegistro, sexo: e.target.value})} options={[{label: "Masculino", value: "M"}, {label: "Femenino", value: "F"}]} icon={User} colorClass="blue" disabled={isViewingMode} />
-                             <InputField label="Edad" value={datosRegistro.edad} onChange={e => setDatosRegistro({...datosRegistro, edad: e.target.value})} unit="años" type="number" icon={Calendar} colorClass="blue" disabled={isViewingMode} />
-                           </div>
-                         </div>
-                         
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-cyan-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Ruler size={20}/> Medidas Generales</h2>
-                           <div className="grid grid-cols-2 gap-4 md:gap-6">
-                             <InputField label="Peso Corporal" value={datosRegistro.peso} onChange={e => setDatosRegistro({...datosRegistro, peso: e.target.value})} unit="kg" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Estatura / Talla" value={datosRegistro.talla} onChange={e => setDatosRegistro({...datosRegistro, talla: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Cintura" value={datosRegistro.cintura} onChange={e => setDatosRegistro({...datosRegistro, cintura: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                             <InputField label="Cadera" value={datosRegistro.cadera} onChange={e => setDatosRegistro({...datosRegistro, cadera: e.target.value})} unit="cm" colorClass="indigo" disabled={isViewingMode} />
-                           </div>
-                         </div>
+      {/* Modal Survey */}
+      {showSurvey && <SurveyModal db={db} saveDB={saveDB} user={user} onClose={()=>setShowSurvey(false)} showToast={showToast} />}
+    </div>
+  );
+}
 
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-rose-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Activity size={20}/> Composición Corporal</h2>
-                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                             <InputField label="Grasa Corporal" value={datosRegistro.grasaCorporal} onChange={e => setDatosRegistro({...datosRegistro, grasaCorporal: e.target.value})} unit="%" colorClass="rose" icon={Flame} disabled={isViewingMode}/>
-                             <InputField label="Grasa Visceral" value={datosRegistro.grasaVisceral} onChange={e => setDatosRegistro({...datosRegistro, grasaVisceral: e.target.value})} unit="Lvl" colorClass="orange" icon={ShieldAlert} disabled={isViewingMode}/>
-                             <InputField label="Musc. Esquelético" value={datosRegistro.musculoEsqueletico} onChange={e => setDatosRegistro({...datosRegistro, musculoEsqueletico: e.target.value})} unit="%" colorClass="cyan" icon={BicepsFlexed} disabled={isViewingMode}/>
-                           </div>
-                         </div>
+function StudentRegistro({ db, saveDB, user, fase, setFase, showToast }: any) {
+  const savedData = db.evaluations[user.id]?.[fase];
+  const isReadOnly = !!savedData;
 
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Heart size={20}/> Test Ruffier Dickson</h2>
-                           <div className="grid grid-cols-3 gap-3 md:gap-6">
-                             <InputField label="P0 (Reposo)" value={datosRegistro.p0} onChange={e => setDatosRegistro({...datosRegistro, p0: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                             <InputField label="P1 (Post)" value={datosRegistro.p1} onChange={e => setDatosRegistro({...datosRegistro, p1: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                             <InputField label="P2 (Recup)" value={datosRegistro.p2} onChange={e => setDatosRegistro({...datosRegistro, p2: e.target.value})} colorClass="emerald" disabled={isViewingMode} />
-                           </div>
-                         </div>
+  const [form, setForm] = useState<any>({});
 
-                         <div className="relative z-10">
-                           <h2 className="text-xs md:text-sm font-black text-purple-400 uppercase tracking-widest mb-6 flex items-center gap-3 drop-shadow-md"><Zap size={20}/> Potencia Muscular</h2>
-                           <div className="grid grid-cols-2 gap-4 md:gap-6">
-                             <InputField label="Tren Superior" value={datosRegistro.trenSuperior} onChange={e => setDatosRegistro({...datosRegistro, trenSuperior: e.target.value})} unit="reps" colorClass="purple" icon={Zap} disabled={isViewingMode}/>
-                             <InputField label="Tren Inferior" value={datosRegistro.trenInferior} onChange={e => setDatosRegistro({...datosRegistro, trenInferior: e.target.value})} unit="reps" colorClass="purple" icon={TrendingUp} disabled={isViewingMode}/>
-                           </div>
-                         </div>
-                       </>
-                     );
-                   })()}
-                </div>
-              </div>
+  useEffect(() => {
+    if (savedData) setForm(savedData);
+    else setForm({ sexo: '', edad: '', peso: '', talla: '', cintura: '', cadera: '', grasa: '', visceral: '', musculo: '', p0: '', p1: '', p2: '', trensup: '', treninf: '' });
+  }, [fase, savedData]);
 
-              {/* Panel de Interpretaciones Detallado */}
-              <div className="xl:col-span-5">
-                <div className="sticky top-8 space-y-6 bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-8 rounded-[3.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.6)] relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 via-purple-500 to-emerald-500"></div>
-                  <h2 className="text-xl md:text-2xl font-black text-white italic mb-8 flex items-center gap-3 tracking-tighter"><Eye className="text-cyan-400" /> Resultados Clínicos</h2>
-                  
-                  <div className="flex flex-col gap-4">
-                     <div className={`p-6 rounded-[2rem] border flex flex-col items-center justify-center relative overflow-hidden shadow-inner transition-all ${resultadosActuales.ruffierInterp.bg}`}>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 relative z-10 drop-shadow-md">Test Ruffier Dickson</p>
-                        <span className="text-5xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg relative z-10 my-2">{String(resultadosActuales.ruffierVal ?? '--')}</span>
-                        <p className={`text-[12px] font-black uppercase tracking-widest relative z-10 drop-shadow-md ${resultadosActuales.ruffierInterp.color}`}>{String(resultadosActuales.ruffierInterp.label)}</p>
-                        <p className="mt-1 text-[10px] text-slate-300 italic font-bold relative z-10">{String(resultadosActuales.ruffierInterp.desc)}</p>
-                     </div>
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newDb = { ...db };
+    if(!newDb.evaluations[user.id]) newDb.evaluations[user.id] = {};
+    newDb.evaluations[user.id][fase] = { ...form, _fecha: new Date().toLocaleDateString() };
+    saveDB(newDb);
+    showToast(`Evaluación de ${fase} guardada. Datos bloqueados.`);
+    if(fase === 'inicial') showToast('🏆 Trofeo: Primer Paso Desbloqueado!', 'success');
+  };
 
-                     <div className="grid grid-cols-2 gap-4">
-                        {[
-                          { l: "Grasa Corporal", v: datosRegistro.grasaCorporal, u: "%", i: resultadosActuales.gcInterp },
-                          { l: "Grasa Visceral", v: datosRegistro.grasaVisceral, u: "Lvl", i: resultadosActuales.gvInterp },
-                          { l: "Músculo Esquelético", v: datosRegistro.musculoEsqueletico, u: "%", i: resultadosActuales.meInterp },
-                          { l: "Índice Masa Corp.", v: resultadosActuales.imc, u: "", i: resultadosActuales.imcInterp },
-                          { l: "Cintura-Cadera", v: resultadosActuales.icc, u: "", i: resultadosActuales.iccInterp },
-                          { l: "Tren Superior", v: datosRegistro.trenSuperior, u: "Reps", i: resultadosActuales.supInterp },
-                          { l: "Tren Inferior", v: datosRegistro.trenInferior, u: "Reps", i: resultadosActuales.infInterp }
-                        ].map((item, idx) => (
-                          <div key={idx} className={`p-4 md:p-5 rounded-3xl border flex flex-col items-center text-center shadow-inner transition-all ${item.i.bg} ${idx === 6 ? 'col-span-2 md:col-span-1' : ''}`}>
-                            <p className="text-[8px] md:text-[9px] font-black text-slate-300 uppercase mb-2 tracking-widest drop-shadow-md h-6 flex items-center">{item.l}</p>
-                            <p className="text-2xl font-black text-white">{String(item.v || '--')}<span className="text-xs opacity-50 ml-1">{item.u}</span></p>
-                            <p className={`text-[9px] md:text-[10px] font-black mt-2 uppercase tracking-widest drop-shadow-md ${item.i.color}`}>{String(item.i.label)}</p>
-                            <p className="text-[8px] text-slate-300 italic mt-1 font-bold truncate w-full px-1">{String(item.i.desc)}</p>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
+  const handleChange = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
 
-                  <div className="mt-8 pt-8 border-t border-[#24293d] space-y-6 relative z-10">
-                     {historial.some(h => h.etapa === datosRegistro.etapa && h.matricula === userData.matricula) ? (
-                        <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-2xl border border-blue-500/30 shadow-inner relative z-10 w-full mt-6">
-                          <Eye size={18} className="text-blue-400 shrink-0" />
-                          <p className="text-[10px] font-black text-blue-400 uppercase leading-tight tracking-tighter">Estás viendo los datos de una fase completada. Estos registros son de solo lectura y no pueden modificarse.</p>
-                        </div>
-                     ) : (
-                       <div className="space-y-4">
-                         {regError && (
-                            <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl animate-in shake duration-300 shadow-inner">
-                              <AlertCircle className="text-orange-500 shrink-0" size={16} />
-                              <p className="text-[10px] font-black text-orange-500 uppercase leading-tight tracking-tight">{regError}</p>
-                            </div>
-                         )}
-                         <button onClick={finalizarRegistro} className="w-full py-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center justify-center gap-4 border border-cyan-400/50">
-                            <Save size={20}/> Guardar Fase Oficial
-                         </button>
-                       </div>
-                     )}
-                  </div>
-                </div>
-              </div>
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto pb-20">
+      <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-2">
+        {['inicial', 'mes1', 'mes2', 'mes3'].map(f => (
+          <button key={f} onClick={() => setFase(f)} className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap capitalize ${fase === f ? 'border-[#003b5c] text-[#003b5c]' : 'border-transparent text-gray-500'}`}>{f}</button>
+        ))}
+      </div>
+
+      {isReadOnly && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 text-blue-700 text-sm flex">
+          <Info className="w-5 h-5 mr-2 flex-shrink-0"/> <p>Estás viendo datos completados. Son de solo lectura.</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Formulario simplificado visualmente para mantener tamaño de código */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+           <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Datos Base</h3>
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div><label className="block text-xs mb-1">Sexo</label>
+               <select name="sexo" required disabled={isReadOnly} value={form.sexo||''} onChange={handleChange} className="w-full p-2 border rounded text-sm disabled:bg-gray-100"><option value="">Select...</option><option value="masculino">Masc</option><option value="femenino">Fem</option></select>
+             </div>
+             <Input disabled={isReadOnly} label="Edad" name="edad" type="number" val={form.edad} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Peso (kg)" name="peso" type="number" step="0.1" val={form.peso} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Talla (cm)" name="talla" type="number" val={form.talla} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Cintura (cm)" name="cintura" type="number" val={form.cintura} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Cadera (cm)" name="cadera" type="number" val={form.cadera} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="% Grasa" name="grasa" type="number" step="0.1" val={form.grasa} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="% Músculo" name="musculo" type="number" step="0.1" val={form.musculo} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Grasa Visceral" name="visceral" type="number" val={form.visceral} onChange={handleChange} />
+           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+           <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Pruebas Físicas</h3>
+           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+             <Input disabled={isReadOnly} label="Ruffier P0" name="p0" type="number" val={form.p0} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Ruffier P1" name="p1" type="number" val={form.p1} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="Ruffier P2" name="p2" type="number" val={form.p2} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="T. Superior (Reps)" name="trensup" type="number" val={form.trensup} onChange={handleChange} />
+             <Input disabled={isReadOnly} label="T. Inferior (Reps)" name="treninf" type="number" val={form.treninf} onChange={handleChange} />
+           </div>
+        </div>
+
+        {isReadOnly && savedData && (
+          <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-[#003b5c]">
+            <h3 className="text-lg font-bold mb-4 border-b pb-2">Resultados Clínicos</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+               {(()=>{
+                 const res = analizarEvaluacionCompleta(savedData);
+                 return (
+                   <>
+                    <ResBox label="IMC" val={res.imc.valor} cl={res.imc.clasificacion} />
+                    <ResBox label="ICC" val={res.icc.valor} cl={res.icc.clasificacion} />
+                    <ResBox label="% Grasa" val={savedData.grasa} cl={res.grasa} />
+                    <ResBox label="% Músculo" val={savedData.musculo} cl={res.musculo} />
+                    <ResBox label="G. Visceral" val={savedData.visceral} cl={res.visceral} />
+                    <ResBox label="Ruffier" val={res.ruffier.valor} cl={res.ruffier.clasificacion} />
+                    <ResBox label="Fuerza Sup." val={savedData.trensup} cl={res.superior} />
+                    <ResBox label="Fuerza Inf." val={savedData.treninf} cl={res.inferior} />
+                   </>
+                 )
+               })()}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* VISTA ESTUDIANTE - EVOLUCIÓN (VITRINA) */}
-          {userData.role === 'student' && activeTab === 'evolución' && (
-            <div className="animate-in fade-in space-y-10 pb-20">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-gradient-to-r from-blue-600/20 to-transparent p-8 md:p-10 rounded-[3rem] border-l-8 border-blue-600 shadow-2xl backdrop-blur-xl h-fit relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[50px] rounded-full pointer-events-none"></div>
-                   <h2 className="text-3xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-tight relative z-10">{String(userData.nombre || 'Mi Perfil')}</h2>
-                   <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest relative z-10">{String(userData.unidadAcademica)} • ID: {String(userData.matricula)}</p>
+        {!isReadOnly && (
+          <div className="flex justify-end pt-4"><button type="submit" className="bg-[#003b5c] text-white px-8 py-3 rounded-xl hover:bg-[#005587] font-bold shadow-lg">Guardar Evaluación</button></div>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function Input({label, name, val, onChange, disabled, type, step}: any) {
+  return <div>
+    <label className="block text-xs mb-1 text-gray-600">{label}</label>
+    <input name={name} type={type} step={step} required disabled={disabled} value={val||''} onChange={onChange} className="w-full p-2 border rounded text-sm disabled:bg-gray-100 disabled:text-gray-500" />
+  </div>;
+}
+
+function ResBox({label, val, cl}: any) {
+  return <div className="p-2 bg-gray-50 rounded border">
+    <span className="block text-xs text-gray-500">{label}</span>
+    <span className="font-bold">{val}</span> <span className={`block text-xs ${colorClass(cl)} font-medium`}>{cl}</span>
+  </div>;
+}
+
+function StudentContenido({ db, showToast }: any) {
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto">
+      {['mes1', 'mes2', 'mes3'].map(mes => {
+        const cf = db.content[mes as keyof typeof db.content].cultura_fisica.filter((i:any) => i.estado==='activo');
+        const nu = db.content[mes as keyof typeof db.content].nutricion.filter((i:any) => i.estado==='activo');
+        if(cf.length===0 && nu.length===0) return null;
+
+        return (
+          <div key={mes} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-[#003b5c] px-6 py-3"><h3 className="text-white font-bold uppercase">{mes.replace('mes', 'Fase Mes ')}</h3></div>
+            <div className="p-6 space-y-6">
+              {cf.length > 0 && <div>
+                <h4 className="flex items-center text-[#005587] font-bold mb-4 border-b pb-2"><Dumbbell className="w-5 h-5 mr-2"/> Cultura Física</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {cf.map((it:any) => <ContentCard key={it.id} item={it} color="blue" showToast={showToast} />)}
                 </div>
-                <div className="bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[3rem] border border-emerald-500/30 flex flex-col justify-center relative overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)] group transition-all hover:border-emerald-400/50">
-                   <div className="absolute top-0 right-0 p-6 text-emerald-500/10 group-hover:scale-110 transition-transform"><Trophy size={100}/></div>
-                   <span className="text-[10px] font-black text-emerald-400 uppercase mb-2 tracking-widest">Estado de Progreso</span>
-                   <h4 className="text-xl font-black text-white uppercase italic mb-2 tracking-tighter relative z-10">{String(evolUser?.highlight?.area || 'Cargando')}</h4>
-                   <p className="text-xs text-slate-400 font-bold leading-relaxed italic relative z-10">{String(evolUser?.highlight?.msg || 'Verificando datos...')}</p>
+              </div>}
+              {nu.length > 0 && <div>
+                <h4 className="flex items-center text-green-600 font-bold mb-4 border-b pb-2"><HeartPulse className="w-5 h-5 mr-2"/> Nutrición</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {nu.map((it:any) => <ContentCard key={it.id} item={it} color="green" showToast={showToast} />)}
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-                 <ProgressLineChart data={evolUser?.ruffier} label="Test Ruffier Dickson" unit="pts" colorKey="emerald" />
-                 <ProgressLineChart data={evolUser?.grasaCorporal} label="Grasa Corporal" unit="%" colorKey="rose" />
-                 <ProgressLineChart data={evolUser?.musculoEsqueletico} label="Músculo Esquelético" unit="%" colorKey="cyan" />
-                 <ProgressLineChart data={evolUser?.superior} label="Tren Superior" unit="reps" colorKey="blue" />
-                 <ProgressLineChart data={evolUser?.inferior} label="Tren Inferior" unit="reps" colorKey="purple" />
-                 <ProgressLineChart data={evolUser?.peso} label="Evolución de Peso" unit="kg" colorKey="indigo" />
-                 <ProgressLineChart data={evolUser?.grasaVisceral} label="Grasa Visceral" unit="Nivel" colorKey="orange" />
-              </div>
-
-              {/* SECCIÓN: VITRINA DE LOGROS */}
-              {(() => {
-                const sorted = historial.filter(h => h.matricula === userData.matricula).sort((a, b) => mesesEtapas.indexOf(a.etapa) - mesesEtapas.indexOf(b.etapa));
-                const hasProgress = sorted.length > 1; 
-                const ultimo = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-
-                const primerPaso = hasProgress;
-                const isConstante = sorted.length >= 3;
-                const retoCompletado = sorted.length === 4;
-
-                const mejoroCardio = hasProgress && parseFloat(ultimo.ruffierVal) < parseFloat(sorted[0].ruffierVal);
-                const mejoroSup = hasProgress && parseFloat(ultimo.trenSuperior) > parseFloat(sorted[0].trenSuperior);
-                const mejoroInf = hasProgress && parseFloat(ultimo.trenInferior) > parseFloat(sorted[0].trenInferior);
-                const mejoroCore = hasProgress && parseFloat(ultimo.cintura) < parseFloat(sorted[0].cintura);
-                
-                const mejoroGrasaCorp = hasProgress && ultimo.grasaCorporal && parseFloat(ultimo.grasaCorporal) < parseFloat(sorted[0].grasaCorporal);
-                const hipertrofia = ultimo && ultimo.musculoEsqueletico && (
-                   (userData.sexo === 'M' && parseFloat(ultimo.musculoEsqueletico) >= 33.3) ||
-                   (userData.sexo !== 'M' && parseFloat(ultimo.musculoEsqueletico) >= 24.3)
-                );
-                const escudoInterno = ultimo && ultimo.grasaVisceral && parseFloat(ultimo.grasaVisceral) <= 9;
-                
-                const atletaIntegral = mejoroCardio && mejoroSup && mejoroInf;
-                
-                const imcSaludable = hasProgress && ultimo && parseFloat(ultimo.imc) >= 18.5 && parseFloat(ultimo.imc) < 25;
-                const iccSaludable = hasProgress && ultimo && (
-                  (userData.sexo === 'M' && parseFloat(ultimo.icc) < 0.95) || 
-                  (userData.sexo !== 'M' && parseFloat(ultimo.icc) < 0.80)
-                );
-                const corazonAtleta = hasProgress && ultimo && parseFloat(ultimo.ruffierVal) <= 5;
-                const fuerzaElite = hasProgress && ultimo && (
-                  (userData.sexo === 'M' && (parseFloat(ultimo.trenSuperior) >= 22 || parseFloat(ultimo.trenInferior) >= 43)) ||
-                  (userData.sexo !== 'M' && (parseFloat(ultimo.trenSuperior) >= 15 || parseFloat(ultimo.trenInferior) >= 39))
-                );
-
-                const nutM1 = hasCompletedCategory("Mes 1", "Nutrición");
-                const cfM1 = hasCompletedCategory("Mes 1", "Cultura Física");
-                const nutM2 = hasCompletedCategory("Mes 2", "Nutrición");
-                const cfM2 = hasCompletedCategory("Mes 2", "Cultura Física");
-                const nutM3 = hasCompletedCategory("Mes 3", "Nutrición");
-                const cfM3 = hasCompletedCategory("Mes 3", "Cultura Física");
-
-                // Cálculo de Progreso
-                const estadosMedallas = [
-                  primerPaso, isConstante, retoCompletado, atletaIntegral,
-                  imcSaludable, iccSaludable, escudoInterno, mejoroCore,
-                  mejoroGrasaCorp, hipertrofia, mejoroCardio, corazonAtleta,
-                  mejoroSup, mejoroInf, fuerzaElite,
-                  nutM1, cfM1, nutM2, cfM2, nutM3, cfM3
-                ];
-                const totalMedallasBases = estadosMedallas.length;
-                const medallasObtenidas = estadosMedallas.filter(Boolean).length;
-                const medallasFaltantes = totalMedallasBases - medallasObtenidas;
-                const platinoDesbloqueado = medallasObtenidas === totalMedallasBases;
-                const porcentajeProgreso = (medallasObtenidas / totalMedallasBases) * 100;
-
-                const renderBadge = (active, title, desc, detail, IconComponent, colorClass, animationDelayIdx = 0) => {
-                  const themes = {
-                    yellow: { text: "text-yellow-200", border: "border-yellow-500/50", glow: "shadow-[0_0_30px_rgba(234,179,8,0.4)]", iconBg: "bg-gradient-to-br from-yellow-400 to-orange-500" },
-                    emerald: { text: "text-emerald-200", border: "border-emerald-500/50", glow: "shadow-[0_0_30px_rgba(16,185,129,0.4)]", iconBg: "bg-gradient-to-br from-emerald-400 to-teal-600" },
-                    blue: { text: "text-blue-200", border: "border-blue-500/50", glow: "shadow-[0_0_30px_rgba(59,130,246,0.4)]", iconBg: "bg-gradient-to-br from-blue-400 to-indigo-600" },
-                    purple: { text: "text-purple-200", border: "border-purple-500/50", glow: "shadow-[0_0_30px_rgba(168,85,247,0.4)]", iconBg: "bg-gradient-to-br from-fuchsia-500 to-purple-600" },
-                    cyan: { text: "text-cyan-200", border: "border-cyan-500/50", glow: "shadow-[0_0_30px_rgba(6,182,212,0.4)]", iconBg: "bg-gradient-to-br from-cyan-300 to-blue-500" },
-                    pink: { text: "text-pink-200", border: "border-pink-500/50", glow: "shadow-[0_0_30px_rgba(236,72,153,0.4)]", iconBg: "bg-gradient-to-br from-pink-400 to-rose-600" },
-                    orange: { text: "text-orange-200", border: "border-orange-500/50", glow: "shadow-[0_0_30px_rgba(249,115,22,0.4)]", iconBg: "bg-gradient-to-br from-orange-400 to-red-500" },
-                    red: { text: "text-red-200", border: "border-red-500/50", glow: "shadow-[0_0_30px_rgba(239,68,68,0.4)]", iconBg: "bg-gradient-to-br from-red-500 to-rose-700" },
-                    slate: { text: "text-slate-200", border: "border-slate-500/50", glow: "shadow-[0_0_30px_rgba(148,163,184,0.4)]", iconBg: "bg-gradient-to-br from-slate-400 to-slate-600" },
-                    lime: { text: "text-lime-200", border: "border-lime-500/50", glow: "shadow-[0_0_30px_rgba(163,230,53,0.4)]", iconBg: "bg-gradient-to-br from-lime-400 to-green-600" },
-                    indigo: { text: "text-indigo-200", border: "border-indigo-500/50", glow: "shadow-[0_0_30px_rgba(99,102,241,0.4)]", iconBg: "bg-gradient-to-br from-indigo-400 to-violet-600" },
-                    rose: { text: "text-rose-200", border: "border-rose-500/50", glow: "shadow-[0_0_30px_rgba(225,29,72,0.4)]", iconBg: "bg-gradient-to-br from-rose-400 to-pink-600" },
-                    platinum: { text: "text-slate-800", border: "border-white/80", glow: "shadow-[0_0_40px_rgba(255,255,255,0.7)]", iconBg: "bg-gradient-to-br from-slate-100 via-white to-slate-300", cardBg: "bg-gradient-to-br from-slate-200 to-slate-400" }
-                  };
-                  
-                  const theme = themes[colorClass] || themes.blue;
-                  const delay = (animationDelayIdx * 0.2).toFixed(1);
-
-                  return (
-                    <div 
-                      onClick={() => setMedalModal({ show: true, title, desc, detail, icon: IconComponent, themeClass: theme.iconBg, colorClass, active })}
-                      className={`p-5 md:p-6 rounded-[2.5rem] border-[1px] flex flex-col items-center text-center transition-all duration-500 relative group cursor-pointer
-                      ${active 
-                        ? `${colorClass === 'platinum' ? theme.cardBg : 'bg-[#1e2336]'} ${theme.border} ${theme.glow} hover:scale-105 hover:-translate-y-2 z-10 hover:z-20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]` 
-                        : 'bg-[#0f172a]/40 border-white/5 opacity-60 grayscale-[0.8] hover:grayscale-[0.4] hover:opacity-100 shadow-none'}`}
-                      style={active ? { animationDelay: `${delay}s`, animationName: 'floatMedal', animationDuration: '4s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-in-out' } : {}}
-                    >
-                      {active && (
-                        <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:animate-[shimmer_1.5s_ease-in-out]"></div>
-                        </div>
-                      )}
-
-                      {active && colorClass !== 'platinum' && <div className={`absolute top-[-30px] right-[-30px] w-24 h-24 blur-[35px] rounded-full opacity-40 ${theme.iconBg}`}></div>}
-                      
-                      <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mb-4 border relative z-10 transition-transform duration-500 shadow-inner
-                        ${active ? `${theme.iconBg} border-white/30 text-white shadow-lg scale-110 group-hover:scale-125 group-hover:rotate-12` : 'bg-[#131620] border-white/5 text-slate-500'}`}>
-                        {active ? <IconComponent size={24} className={`md:w-7 md:h-7 drop-shadow-md ${colorClass === 'platinum' ? 'text-slate-800' : 'text-white'}`} /> : <Lock size={20} className="md:w-6 md:h-6" />}
-                      </div>
-                      
-                      <h5 className={`text-[10px] md:text-[11px] font-black uppercase tracking-widest mb-1 md:mb-2 relative z-10 leading-tight 
-                        ${active ? (colorClass === 'platinum' ? 'text-slate-900 drop-shadow-sm' : 'text-white drop-shadow-md') : 'text-slate-500'}`}>{title}</h5>
-                      
-                      <p className={`text-[8px] md:text-[9px] font-bold uppercase tracking-tighter relative z-10 leading-tight px-1 
-                        ${active ? theme.text : 'text-slate-600'}`}>{desc}</p>
-                    </div>
-                  );
-                };
-
-                return (
-                  <div className="bg-[#0f172a]/90 backdrop-blur-3xl p-6 md:p-10 rounded-[3rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden mt-6">
-                    <div className="absolute bottom-[-50px] left-[-50px] w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full pointer-events-none"></div>
-                    <h3 className="text-2xl md:text-3xl font-black text-white italic mb-2 flex items-center gap-3 md:gap-4 relative z-10 tracking-tighter"><Award className="text-cyan-400" size={32} /> Vitrina de Logros</h3>
-                    
-                    {/* BARRA DE PROGRESO */}
-                    <div className="bg-[#131620]/80 p-5 rounded-3xl border border-white/5 mb-8 relative z-10 shadow-inner">
-                      <div className="flex justify-between items-end mb-3">
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest">Progreso de Colección</p>
-                          <p className="text-xs md:text-sm font-black text-white mt-1">{medallasObtenidas} obtenidas <span className="text-slate-500 font-normal mx-2">|</span> <span className="text-cyan-400">{medallasFaltantes} por desbloquear</span></p>
-                        </div>
-                        <div className="text-right">
-                           <span className="text-3xl font-black text-white italic tracking-tighter">{Math.round(porcentajeProgreso)}<span className="text-lg text-cyan-400">%</span></span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-[#0f172a] h-3 rounded-full overflow-hidden border border-white/5">
-                         <div className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-out" style={{ width: `${porcentajeProgreso}%` }}></div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 relative z-10">
-                      {/* Fila 1: Disciplina */}
-                      {renderBadge(primerPaso, "Primer Paso", "Mes 1 Completo", "Completaste exitosamente todas las pruebas de tu primera evaluación física.", ArrowUpRight, "slate", 1)}
-                      {renderBadge(isConstante, "Disciplina", "Mes 2 Completo", "Registraste tus datos en dos fases seguidas, demostrando constancia en tu proceso.", Calendar, "yellow", 2)}
-                      {renderBadge(retoCompletado, "Constancia", "Reto Finalizado", "Llegaste a la meta final. Has completado las 3 fases del reto físico de la DAES.", Star, "orange", 3)}
-                      {renderBadge(atletaIntegral, "Atleta Integral", "Mejora en 3 pruebas", "Mejoraste simultáneamente en tus capacidades de Cardio, Tren Superior y Tren Inferior.", Trophy, "orange", 4)}
-                      
-                      {/* Fila 2: Composición Corporal */}
-                      {renderBadge(imcSaludable, "Equilibrio", "IMC Saludable", "Lograste o mantuviste tu Índice de Masa Corporal dentro del rango saludable (18.5 - 24.9).", Weight, "cyan", 5)}
-                      {renderBadge(iccSaludable, "Riesgo Cero", "ICC Bajo Riesgo", "Tu Índice Cintura-Cadera indica un riesgo cardiovascular bajo y saludable.", ShieldCheck, "pink", 6)}
-                      {renderBadge(escudoInterno, "Escudo Interno", "Grasa Visceral Sana", "Mantuviste tu nivel de Grasa Visceral en parámetros seguros (Nivel 1-9).", ShieldAlert, "yellow", 7)}
-                      {renderBadge(mejoroCore, "Core de Acero", "Reducción de Cintura", "Lograste reducir el perímetro de tu cintura en comparación con tus registros anteriores.", Ruler, "lime", 8)}
-                      
-                      {/* Fila 3: Grasa y Músculo */}
-                      {renderBadge(mejoroGrasaCorp, "Definición", "Mejoró Grasa Corp.", "Redujiste tu porcentaje de Grasa Corporal acercándote a un rango más saludable.", Flame, "rose", 9)}
-                      {renderBadge(hipertrofia, "Hipertrofia", "Músculo en Nivel Sano", "Alcanzaste un nivel óptimo o atlético en tu porcentaje de Músculo Esquelético.", BicepsFlexed, "blue", 10)}
-                      {renderBadge(mejoroCardio, "Motor Imparable", "Mejora Test Ruffier", "Mejoraste tu capacidad cardiovascular reduciendo tu puntaje en la prueba de Ruffier.", Heart, "emerald", 11)}
-                      {renderBadge(corazonAtleta, "Cardio Élite", "Ruffier Óptimo/Excelente", "Alcanzaste un nivel Bueno o Excelente en tu test Ruffier Dickson.", Activity, "red", 12)}
-
-                      {/* Fila 4: Rendimiento Físico y Platino */}
-                      {renderBadge(mejoroSup, "Fuerza Bruta", "Mejora Tren Superior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Superior.", Zap, "blue", 13)}
-                      {renderBadge(mejoroInf, "Pot. Explosiva", "Mejora Tren Inferior", "Aumentaste el número de repeticiones en tu prueba de fuerza de Tren Inferior.", TrendingUp, "purple", 14)}
-                      {renderBadge(fuerzaElite, "Fuerza Élite", "Fuerza Óptima/Excelente", "Demostraste una condición destacada obteniendo nivel Bueno o Excelente en las pruebas de fuerza.", Award, "indigo", 15)}
-                      
-                      {renderBadge(nutM1, "Nutrición M1", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 1.", Apple, "rose", 16)}
-                      {renderBadge(cfM1, "Física M1", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 1.", Zap, "yellow", 17)}
-                      {renderBadge(nutM2, "Nutrición M2", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 2.", Apple, "rose", 18)}
-                      {renderBadge(cfM2, "Física M2", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 2.", Zap, "yellow", 19)}
-                      {renderBadge(nutM3, "Nutrición M3", "Experto Nutrición", "Visualizaste todos los contenidos educativos de Nutrición correspondientes al Mes 3.", Apple, "rose", 20)}
-                      {renderBadge(cfM3, "Física M3", "Experto Físico", "Visualizaste todos los contenidos educativos de Cultura Física correspondientes al Mes 3.", Zap, "yellow", 21)}
-
-                      <div className="col-span-2 md:col-span-3 lg:col-span-4 mt-4">
-                         {renderBadge(platinoDesbloqueado, "Platino Absoluto", "Colección Completa", "¡El máximo honor del Reto Actívate! Desbloqueaste todas las medallas posibles demostrando una disciplina inquebrantable a lo largo de las fases.", Crown, "platinum", 22)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+              </div>}
             </div>
-          )}
+          </div>
+        )
+      })}
+    </div>
+  );
+}
 
-        </main>
+function ContentCard({ item, color, showToast }: any) {
+  const isBlue = color === 'blue';
+  return (
+    <a href={item.url} target="_blank" rel="noreferrer" onClick={()=>{
+      if(!sessionStorage.getItem('vistoVideo')) {
+        setTimeout(() => showToast('🏆 Trofeo Desbloqueado: Estudioso!', 'success'), 2000);
+        sessionStorage.setItem('vistoVideo', 'true');
+      }
+    }} className={`block p-4 border rounded-xl hover:shadow-md transition group ${isBlue ? 'border-blue-100 bg-blue-50/30' : 'border-green-100 bg-green-50/30'}`}>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-3">
+          <div className="bg-white p-2 rounded-lg shadow-sm"><Youtube className={`w-5 h-5 ${isBlue ? 'text-red-500' : 'text-green-500'}`}/></div>
+          <span className="font-medium text-gray-800">{item.titulo}</span>
+        </div>
+        <ExternalLink className="w-4 h-4 text-gray-400"/>
+      </div>
+    </a>
+  );
+}
+
+function StudentEvolucion({ db, user }: any) {
+  const evals = db.evaluations[user.id] || {};
+  const data = useMemo(() => {
+    const arr = [];
+    for(const fase of ['inicial', 'mes1', 'mes2', 'mes3']) {
+      if(evals[fase]) {
+        const d = evals[fase];
+        const res = analizarEvaluacionCompleta(d);
+        arr.push({
+          name: fase.toUpperCase(),
+          imc: parseFloat(res.imc.valor), peso: parseFloat(d.peso),
+          grasa: parseFloat(d.grasa), musculo: parseFloat(d.musculo),
+          ruffier: parseFloat(res.ruffier.valor),
+          trensup: parseFloat(d.trensup), treninf: parseFloat(d.treninf)
+        });
+      }
+    }
+    return arr;
+  }, [evals]);
+
+  // Gamification Logic
+  const isEstudioso = sessionStorage.getItem('vistoVideo') === 'true';
+  const l = data.length;
+  const t1 = l > 0;
+  const t2 = l > 1;
+  const t3 = l > 1 && (data[l-1].trensup > data[0].trensup || data[l-1].treninf > data[0].treninf);
+  const t4 = l > 1 && (data[l-1].ruffier < data[0].ruffier); // Ruffier menor es mejor
+  const t5 = isEstudioso;
+  const t6 = t1 && t2 && t3 && t4 && t5; // Platino
+  
+  const trophies = [
+    { id: 't1', icon: <Star/>, name: 'Primer Paso', desc: 'Fase Inicial', unl: t1, c: 'text-green-400' },
+    { id: 't2', icon: <Activity/>, name: 'Constancia', desc: 'Registro Mes 1', unl: t2, c: 'text-orange-400' },
+    { id: 't3', icon: <Dumbbell/>, name: 'Fuerza Bruta', desc: 'Mejorar reps', unl: t3, c: 'text-purple-400' },
+    { id: 't4', icon: <HeartPulse/>, name: 'Corazón Hierro', desc: 'Mejorar Ruffier', unl: t4, c: 'text-red-400' },
+    { id: 't5', icon: <BookOpen/>, name: 'Estudioso', desc: 'Ver contenido', unl: t5, c: 'text-blue-400' },
+    { id: 't6', icon: <Crown/>, name: 'Leyenda Activa', desc: 'Todos los trofeos', unl: t6, c: 'text-yellow-200' },
+  ];
+  const unlockedCount = trophies.filter(t=>t.unl).length;
+
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto pb-20">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#003b5c] to-[#005587] rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-center">
+        <div><h2 className="text-2xl font-bold">{user.name}</h2><p className="text-blue-100">{user.unidad} | {user.id}</p></div>
+        <div className="mt-4 md:mt-0 bg-white/20 px-6 py-3 rounded-xl backdrop-blur-sm border border-white/30 text-center">
+          <p className="text-sm font-medium text-blue-100 uppercase">Fases Registradas</p>
+          <p className="text-2xl font-bold mt-1">{l} / 4</p>
+        </div>
+      </div>
+
+      {/* Charts */}
+      {l > 0 ? (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">Análisis Visual</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+             <ChartWrapper title="Composición Básica (IMC / Peso)" data={data} lines={[{k:'imc', c:'#005587'},{k:'peso', c:'#cda036'}]} />
+             <ChartWrapper title="Grasa vs Músculo (%)" data={data} lines={[{k:'grasa', c:'#ef4444'},{k:'musculo', c:'#10b981'}]} />
+             <ChartWrapper title="Fuerza (Repeticiones)" data={data} lines={[{k:'trensup', c:'#8b5cf6'},{k:'treninf', c:'#f59e0b'}]} />
+             <ChartWrapper title="Índice Ruffier Dickson" data={data} lines={[{k:'ruffier', c:'#3b82f6'}]} />
+          </div>
+        </div>
+      ) : (
+        <div className="text-center p-10 bg-white rounded-xl border"><p className="text-gray-500">Registra tu fase inicial para ver gráficas de evolución.</p></div>
+      )}
+
+      {/* Gamification */}
+      <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl text-white relative overflow-hidden">
+        <div className="flex justify-between items-end mb-8 relative z-10">
+          <div><h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#cda036] to-yellow-200 uppercase tracking-wider mb-2">Vitrina de Logros</h3></div>
+          <div className="text-right">
+            <p className="text-sm text-gray-400 mb-1">Colección: {unlockedCount} / 6</p>
+            <div className="w-32 bg-gray-700 h-2 rounded-full overflow-hidden">
+               <div className="bg-[#cda036] h-full transition-all duration-1000" style={{width: `${(unlockedCount/6)*100}%`}}></div>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 relative z-10">
+          {trophies.map((t) => (
+             <div key={t.id} className={`bg-gray-800 border border-gray-700 rounded-xl p-4 text-center transition-all ${t.unl ? 'transform hover:scale-105 shadow-[0_0_15px_rgba(205,160,54,0.3)]' : 'opacity-50 grayscale'}`}>
+               <div className={`h-12 flex justify-center items-center mb-2 ${t.unl ? t.c : 'text-gray-500'}`}>{React.cloneElement(t.icon as React.ReactElement, { size: 32 })}</div>
+               <h4 className="font-bold text-sm leading-tight mb-1">{t.name}</h4>
+               <p className="text-[10px] text-gray-400">{t.desc}</p>
+             </div>
+          ))}
+        </div>
       </div>
     </div>
   );
-};
+}
+
+function ChartWrapper({title, data, lines}: any) {
+  return (
+    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 h-64 flex flex-col">
+      <h4 className="text-center text-sm font-medium text-gray-600 mb-2">{title}</h4>
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} />
+            <YAxis tick={{fontSize: 10}} />
+            <Tooltip contentStyle={{fontSize: '12px', borderRadius: '8px'}} />
+            <Legend wrapperStyle={{fontSize: '10px'}} />
+            {lines.map((l:any) => <Line key={l.k} type="monotone" dataKey={l.k} stroke={l.c} strokeWidth={2} activeDot={{ r: 6 }} />)}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SurveyModal({ db, saveDB, user, onClose, showToast }: any) {
+  const savedData = db.surveys[user.id];
+  const [form, setForm] = useState(savedData || {});
+  
+  const handleChange = (e:any) => setForm({...form, [e.target.name]: e.target.value});
+  
+  const handleSubmit = (e:any) => {
+    e.preventDefault();
+    const newDb = {...db};
+    newDb.surveys[user.id] = form;
+    saveDB(newDb);
+    showToast("Expediente clínico guardado y bloqueado.");
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto">
+        <div className="bg-green-600 text-white p-6 flex justify-between items-center sticky top-0 z-10">
+          <h2 className="text-xl font-bold flex items-center"><Stethoscope className="mr-2"/> Expediente Clínico</h2>
+          <button onClick={onClose} className="text-white hover:text-green-200 text-2xl">&times;</button>
+        </div>
+        
+        {savedData && (
+           <div className="bg-blue-50 p-4 text-blue-800 text-sm text-center border-b border-blue-100 flex justify-center items-center">
+             <CheckCircle className="w-4 h-4 mr-2"/> Datos enviados. Solo lectura.
+           </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <SurveySection title="I. Salud Clínica">
+               <SInput n="cronica" l="Condición Crónica" ph="Asma, Ninguna" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="dolor" l="Dolor/Lesiones" ph="Rodilla, Ninguno" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="meds" l="Medicamentos" ph="Uso frecuente" f={form} c={handleChange} d={!!savedData} />
+             </SurveySection>
+             <SurveySection title="II. Objetivos y Actividad">
+               <SInput n="objetivo" l="Objetivo principal" ph="Bajar peso, salud" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="actividad" l="Nivel actividad" ph="Sedentario, activo" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="atractivas" l="Actividades preferidas" ph="Correr, pesas" f={form} c={handleChange} d={!!savedData} />
+             </SurveySection>
+             <SurveySection title="III. Entrenamiento">
+               <SInput n="tiempo" l="Tiempo disponible" ph="1 hora diaria" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="lugar" l="Lugar de entreno" ph="Casa, gimnasio" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="obstaculo" l="Mayor obstáculo" ph="Tiempo, pereza" f={form} c={handleChange} d={!!savedData} />
+             </SurveySection>
+             <SurveySection title="IV. Estilo de Vida">
+               <SInput n="sueno" l="Calidad sueño" ph="Buena (7h)" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="energia" l="Nivel energía" ph="Alto, fluctuante" f={form} c={handleChange} d={!!savedData} />
+               <SInput n="motivacion" l="Motivación" ph="Estética, salud" f={form} c={handleChange} d={!!savedData} />
+             </SurveySection>
+          </div>
+          {!savedData && (
+            <div className="flex justify-end pt-4 border-t">
+              <button type="submit" className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 font-bold shadow-lg">Enviar Expediente</button>
+            </div>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function SurveySection({title, children}:any) {
+  return <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+    <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 text-sm">{title}</h3>
+    <div className="space-y-3">{children}</div>
+  </div>;
+}
+
+function SInput({n, l, ph, f, c, d}:any) {
+  return <div>
+    <label className="text-xs text-gray-600 mb-1 block">{l}</label>
+    <input name={n} required disabled={d} placeholder={ph} value={f[n]||''} onChange={c} className="w-full p-2 border rounded text-sm disabled:bg-gray-200 disabled:text-gray-500" />
+  </div>;
+}
 
 export default App;
