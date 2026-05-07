@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Component, ReactNode } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
@@ -10,6 +10,41 @@ import {
   Target, TrendingUp, Medal, ChevronRight, X, Search, FileText
 } from 'lucide-react';
 
+// === ESCUDO PROTECTOR (ERROR BOUNDARY) ===
+// Evita la "pantalla blanca" mostrando el error exacto si el navegador falla
+class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px', backgroundColor: '#fee2e2', color: '#991b1b', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '10px' }}>¡Ups! Hubo un error al cargar la pantalla</h1>
+          <p style={{ marginBottom: '20px' }}>Por favor, envíame este mensaje para solucionarlo de inmediato:</p>
+          <pre style={{ backgroundColor: '#fca5a5', padding: '20px', borderRadius: '10px', overflow: 'auto' }}>
+            {this.state.error?.message}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
+  );
+}
+
+// === CÓDIGO PRINCIPAL DE LA PLATAFORMA ===
 type Role = 'admin' | 'student';
 
 interface Usuario {
@@ -296,20 +331,36 @@ const globalStyles = `
   ::-webkit-scrollbar-thumb:hover { background: #ffcc00; }
 `;
 
-export default function App() {
+function MainApp() {
   const [db, setDb] = useState<typeof DEFAULT_DB>(DEFAULT_DB);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    // 1. INYECTAR TAILWIND CSS AUTOMÁTICAMENTE (Esto arregla la pantalla en blanco por falta de estilos)
+    if (!document.getElementById("tailwind-cdn")) {
+      const tailwindScript = document.createElement("script");
+      tailwindScript.id = "tailwind-cdn";
+      tailwindScript.src = "https://cdn.tailwindcss.com";
+      document.head.appendChild(tailwindScript);
+    }
+
+    // 2. INYECTAR ESTILOS GLOBALES
+    if (!document.getElementById("global-styles")) {
+      const styleSheet = document.createElement("style");
+      styleSheet.id = "global-styles";
+      styleSheet.innerText = globalStyles;
+      document.head.appendChild(styleSheet);
+    }
+
+    // 3. RECUPERAR BASE DE DATOS
     const local = localStorage.getItem('retoActivateDB_v4');
     if (local) {
       try { setDb(JSON.parse(local)); } catch (e) { console.error("Error parsing DB", e); }
     }
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = globalStyles;
-    document.head.appendChild(styleSheet);
-    return () => { document.head.removeChild(styleSheet); }
+    
+    setIsReady(true);
   }, []);
 
   const saveDB = (newDb: typeof DEFAULT_DB) => {
@@ -321,6 +372,8 @@ export default function App() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  if (!isReady) return null; // Evita renderizar antes de que Tailwind inyecte
 
   const currentUser = db.users.find(u => u.id === currentUserId) || null;
 
@@ -581,7 +634,6 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
 
     htmlContent += `</body></html>`;
 
-    // Truco de formato y descarga
     const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -594,7 +646,6 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
   };
 
   const descargarPlantilla = () => {
-    // Se agrega \uFEFF para que Excel detecte la codificación UTF-8 (Acentos y Ñ)
     const csvContent = "\uFEFFNombre,Matricula,Contraseña,Unidad_Academica\nEjemplo Estudiante,202612345,Clave123,Facultad de Cultura Física\n";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -641,7 +692,6 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           
-          {/* ===================== TAB USUARIOS ===================== */}
           {tab === 'usuarios' && (
             <div className="space-y-8 max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -735,7 +785,6 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
             </div>
           )}
 
-          {/* ===================== TAB HISTORIAL ===================== */}
           {tab === 'historial' && (
             <div className="space-y-6 max-w-7xl mx-auto">
               <div className="glass-panel rounded-3xl overflow-hidden">
@@ -786,7 +835,6 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
             </div>
           )}
 
-          {/* ===================== TAB CONTENIDO ===================== */}
           {tab === 'contenido' && (
              <div className="space-y-8 max-w-7xl mx-auto">
               <div className="glass-panel p-8 rounded-3xl relative overflow-hidden">
@@ -1114,7 +1162,6 @@ function ContentCard({ item, color, db, saveDB, user, showToast }: any) {
   );
 }
 
-// ==== LA PANTALLA PRINCIPAL DE EVOLUCIÓN (CON GRID DE LOGROS OPTIMIZADO) ====
 function StudentEvolucion({ db, user }: any) {
   const evals = db.evaluations[user.id] || {};
   const [selectedTrophy, setSelectedTrophy] = useState<any>(null);
@@ -1196,11 +1243,11 @@ function StudentEvolucion({ db, user }: any) {
   const t2 = l >= 2; 
   const t3 = l >= 3; 
   const t4 = l >= 4; 
-  const t5 = l > 1 && last.trensup > first.trensup; 
-  const t6 = l > 1 && last.treninf > first.treninf; 
-  const t7 = l > 1 && last.ruffier < first.ruffier; 
-  const t8 = l > 1 && last.grasa < first.grasa; 
-  const t9 = l > 1 && last.musculo > first.musculo; 
+  const t5 = l > 1 && last?.trensup > first?.trensup; 
+  const t6 = l > 1 && last?.treninf > first?.treninf; 
+  const t7 = l > 1 && last?.ruffier < first?.ruffier; 
+  const t8 = l > 1 && last?.grasa < first?.grasa; 
+  const t9 = l > 1 && last?.musculo > first?.musculo; 
   const t10 = viewedCount >= 1; 
   const t11 = viewedCount >= 3; 
   const t12 = hasSurvey; 
@@ -1462,7 +1509,6 @@ function ChartWrapper({title, data, lines, onInfoClick}: any) {
   );
 }
 
-// RESTAURACIÓN DE LA ENCUESTA (EXPEDIENTE CLÍNICO)
 function SurveyModal({ db, saveDB, user, onClose, showToast }: any) {
   const savedData = db.surveys[user.id];
   const [form, setForm] = useState(savedData || {});
