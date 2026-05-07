@@ -10,8 +10,7 @@ import {
   Target, TrendingUp, Medal, ChevronRight, X, Search, FileText
 } from 'lucide-react';
 
-// === ESCUDO PROTECTOR (ERROR BOUNDARY) ===
-// Evita la "pantalla blanca" mostrando el error exacto si el navegador falla
+// === ESCUDO PROTECTOR PRINCIPAL (ERROR BOUNDARY) ===
 class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: ReactNode}) {
     super(props);
@@ -23,10 +22,10 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean,
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '40px', backgroundColor: '#fee2e2', color: '#991b1b', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+        <div style={{ padding: '40px', backgroundColor: '#0a0a0a', color: '#ff4444', minHeight: '100vh', fontFamily: 'sans-serif' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '10px' }}>¡Ups! Hubo un error al cargar la pantalla</h1>
-          <p style={{ marginBottom: '20px' }}>Por favor, envíame este mensaje para solucionarlo de inmediato:</p>
-          <pre style={{ backgroundColor: '#fca5a5', padding: '20px', borderRadius: '10px', overflow: 'auto' }}>
+          <p style={{ marginBottom: '20px', color: '#cccccc' }}>Detalles técnicos del error:</p>
+          <pre style={{ backgroundColor: '#1a1a1a', padding: '20px', borderRadius: '10px', overflow: 'auto', border: '1px solid #333' }}>
             {this.state.error?.message}
           </pre>
         </div>
@@ -338,7 +337,7 @@ function MainApp() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // 1. INYECTAR TAILWIND CSS AUTOMÁTICAMENTE (Esto arregla la pantalla en blanco por falta de estilos)
+    // 1. INYECTAR TAILWIND CSS AUTOMÁTICAMENTE
     if (!document.getElementById("tailwind-cdn")) {
       const tailwindScript = document.createElement("script");
       tailwindScript.id = "tailwind-cdn";
@@ -354,18 +353,29 @@ function MainApp() {
       document.head.appendChild(styleSheet);
     }
 
-    // 3. RECUPERAR BASE DE DATOS
-    const local = localStorage.getItem('retoActivateDB_v4');
-    if (local) {
-      try { setDb(JSON.parse(local)); } catch (e) { console.error("Error parsing DB", e); }
+    // 3. RECUPERAR BASE DE DATOS (Envuelto en try/catch por bloqueos de StackBlitz)
+    try {
+      const local = localStorage.getItem('retoActivateDB_v4');
+      if (local) {
+        setDb(JSON.parse(local));
+      }
+    } catch (e) {
+      console.warn("El navegador bloqueó el acceso a localStorage en la vista previa. Los datos no se guardarán al recargar.");
     }
     
-    setIsReady(true);
+    // Le damos un pequeño margen de tiempo a Tailwind para inyectarse antes de renderizar
+    setTimeout(() => {
+      setIsReady(true);
+    }, 300);
   }, []);
 
   const saveDB = (newDb: typeof DEFAULT_DB) => {
     setDb(newDb);
-    localStorage.setItem('retoActivateDB_v4', JSON.stringify(newDb));
+    try {
+      localStorage.setItem('retoActivateDB_v4', JSON.stringify(newDb));
+    } catch(e) {
+      console.warn("No se pudo guardar en memoria local debido a restricciones de seguridad.");
+    }
   };
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -373,12 +383,20 @@ function MainApp() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  if (!isReady) return null; // Evita renderizar antes de que Tailwind inyecte
+  // PANTALLA DE CARGA SEGURA PARA EVITAR PANTALLAS BLANCAS
+  if (!isReady) {
+    return (
+      <div style={{ backgroundColor: '#030712', color: '#00e5ff', height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+        <Activity size={64} style={{ marginBottom: '20px', animation: 'pulse 2s infinite' }} />
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', letterSpacing: '2px', textTransform: 'uppercase' }}>Cargando Motor Gráfico...</h2>
+      </div>
+    );
+  }
 
   const currentUser = db.users.find(u => u.id === currentUserId) || null;
 
   return (
-    <div className="h-screen w-full font-sans text-gray-200 antialiased overflow-hidden flex bg-[#030712] animate-gradient-bg bg-gradient-to-br from-[#020b18] via-[#001f3f] to-[#011222] relative">
+    <div style={{ backgroundColor: '#030712' }} className="h-screen w-full font-sans text-gray-200 antialiased overflow-hidden flex animate-gradient-bg bg-gradient-to-br from-[#020b18] via-[#001f3f] to-[#011222] relative">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none mix-blend-screen"></div>
       <div className="absolute inset-0 scanlines z-0"></div>
       
@@ -692,6 +710,7 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           
+          {/* ===================== TAB USUARIOS ===================== */}
           {tab === 'usuarios' && (
             <div className="space-y-8 max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -785,6 +804,7 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
             </div>
           )}
 
+          {/* ===================== TAB HISTORIAL ===================== */}
           {tab === 'historial' && (
             <div className="space-y-6 max-w-7xl mx-auto">
               <div className="glass-panel rounded-3xl overflow-hidden">
@@ -835,6 +855,7 @@ function AdminView({ db, saveDB, onLogout, showToast }: any) {
             </div>
           )}
 
+          {/* ===================== TAB CONTENIDO ===================== */}
           {tab === 'contenido' && (
              <div className="space-y-8 max-w-7xl mx-auto">
               <div className="glass-panel p-8 rounded-3xl relative overflow-hidden">
